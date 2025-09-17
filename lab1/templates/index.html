@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aspirin</title>
+    <link href="https://fonts.googleapis.com/css?family=Inter&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/styles/index_style.css">
+</head>
+<body>
+<div class="mainpage">
+    <div class="header">
+        <div class="frame-14">
+            <a href="/hello"><span class="text-home">🏠︎</span></a>
+        </div>
+        <p class="text-title"><span class="text-title">Производство аспирина</span></p>
+        <div class="frame-13"></div>
+    </div>
+
+    <div class="standartpage">
+
+        <form action="/hello" method="GET">
+            <div class="search">
+                <input type="text" name="query" placeholder="Поиск" value="{{ .query }}" class="text-search">
+                <!-- value="{{ .query }}"  нужно для того, чтобы из обработчика передавать
+                введенный запрос обратно на страницу. Тем самым введенный текст в поле поиска будет сохраняться-->
+                <button type="submit" class="search-button"><img src="http://localhost:9000/aspirinimages/img/search.png" alt="home"></button>
+<!--                <button type="submit" class="search-button" src="/static/img/search.png"></button>-->
+            </div>
+        </form>
+
+        <div class="steps">
+
+            {{ range .steps }}
+                <div class="step">
+                    <p class="step-name"><span class="step-name">{{.Title}}</span></p>
+                    <img src="{{.Src}}" class="image" alt="image" />
+                    <div class="frame-9">
+                        <a href="/step/{{ .ID }}">
+                            <div class="frame-17">
+                                <p class="text-details"><span class="text-details">Подробнее</span></p>
+
+                            </div>
+                        </a>
+<!--                        <div class="frame-17">-->
+<!--                            <a href="/order/{{ .ID }}" class="text-details"><span class="text-details">Подробнее</span></a>-->
+
+<!--                        </div>-->
+                        <div class="frame-18"></div>
+                    </div>
+                </div>
+            {{ end }}
+        </div>
+<!--        <div class="foot">-->
+<!--&lt;!&ndash;            <img src="/static/img/korzina.png" class="cart" alt="cart" />&ndash;&gt;-->
+<!--            <a href="/cart"><img src="http://localhost:9000/aspirinimages/img/korzina.png" class="cart" alt="home"></a>-->
+
+<!--        </div>-->
+        <div class="foot">
+            <div class="cart-container">
+                <a href="{{if .cartCount}}/cart{{else}}javascript:void(0){{end}}" class="cart-link">
+                    <img src="http://localhost:9000/aspirinimages/img/korzina.png" class="cart" alt="cart">
+                    {{if .cartCount}}
+                    <div class="cart-indicator">
+                        <span class="cart-count">{{.cartCount}}</span>
+                    </div>
+                    {{end}}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

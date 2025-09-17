@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aspirin</title>
+    <link href="https://fonts.googleapis.com/css?family=Inter&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/styles/step_style.css">
+</head>
+<body>
+<div class="steppage">
+    <div class="header">
+        <div class="frame-home">
+            <a href="/hello"><span class="text-home">🏠︎</span></a>
+        </div>
+        <p class="text-title"><span class="text-title">Производство аспирина</span></p>
+        <div class="frame-z"></div>
+    </div>
+    <div class="standartpage">
+        <div class="step-details">
+            <div class="frame-step">
+                <p class="text-step-title"><span class="text-step-title">{{ .step.Title }}</span>
+                <div class="frame-666">
+                    <div class="frame-png">
+                        <img src="{{ .step.Src }}" class="image" alt="img" />
+                    </div>
+                    <div class="frame-details">
+                        <div class="frame-text-details">
+                            <p class="text-step-details"><span class="text-step-details">{{ .step.Details }}</span></p>
+                        </div>
+                        <img src="{{ .step.SrcUr }}" class="formula" alt="formula" />
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

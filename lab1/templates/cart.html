@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aspirin</title>
+    <link href="https://fonts.googleapis.com/css?family=Inter&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/styles/cart_style.css">
+</head>
+<body>
+<div class="cartpage">
+    <div class="header">
+        <div class="frame-14">
+            <a href="/hello"><span class="text-header">🏠︎</span></a>
+        </div>
+        <p class="text-header"><span class="text-header">Производство аспирина</span></p>
+        <div class="frame-13"></div>
+    </div>
+
+    <div class="standartpage">
+
+        <div class="steps">
+
+            {{ range .steps }}
+            <div class="step">
+                <p class="text-cart"><span class="text-cart">{{.Title}}</span></p>
+                <img src="{{.Src}}" class="img" alt="image" />
+                <div class="steps-cart">
+                    <div class="material">
+                        <div class="frame-title">
+                            <div class="title-material">
+                                <p class="text-cart"><span class="text-cart">исходное вещество:</span></p>
+                            </div>
+                            <div class="name-material">
+                                <p class="text-cart"><span class="text-cart">{{.StartingMaterial}}</span></p>
+                            </div>
+                        </div>
+                        <div class="frame-data">
+                            <div class="frame-values">
+                                <p class="text-cart"><span class="text-cart">ρ, г/мл</span></p>
+                                <p class="text-cart"><span class="text-cart">{{.DensitySM}}</span></p>
+                            </div>
+                            <div class="frame-values">
+                                <p class="text-cart"><span class="text-cart">М, г/моль</span></p>
+                                <p class="text-cart"><span class="text-cart">{{.MolarMassSM}}</span></p>
+                            </div>
+                            <div class="frame-values">
+                                <p class="text-cart"><span class="text-cart">V, мл</span></p>
+                                <input class="volume-sm" type="text" placeholder="Введите объем"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="material">
+                        <div class="frame-title">
+                            <div class="title-material">
+                                <p class="text-cart"><span class="text-cart">результат:</span></p>
+                            </div>
+                            <div class="name-material">
+                                <p class="text-cart"><span class="text-cart">{{.ResultMaterial}}</span></p>
+                            </div>
+                        </div>
+                        <div class="frame-data">
+                            <div class="frame-values">
+                                <p class="text-cart"><span class="text-cart">ρ, г/мл</span></p>
+                                <p class="text-cart"><span class="text-cart">{{.DensityRM}}</span></p>
+                            </div>
+                            <div class="frame-values">
+                                <p class="text-cart"><span class="text-cart">М, г/моль</span></p>
+                                <p class="text-cart"><span class="text-cart">{{.MolarMassRM}}</span></p>
+                            </div>
+                            <div class="frame-values">
+                                <p class="text-cart"><span class="text-cart">V, мл</span></p>
+                                <div class="volume-rm"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+<!--        <div class="foot">-->
+<!--&lt;!&ndash;            <a href="/cart"><img src="/static/img/korzina.png" class="cart" alt="home"></a>&ndash;&gt;-->
+
+<!--        </div>-->
+    </div>
+</div>
+
+</body>
+</html>
