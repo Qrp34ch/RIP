@@ -428,3 +428,7 @@ span.disabled {
     cursor: default;
     opacity: 0.6;
 }
+
+.text-search:focus {
+    outline: none;
+}
