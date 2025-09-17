@@ -422,3 +422,9 @@ img {
     order: 0;
     flex-grow: 0;
 }
+
+.cart-link.disabled,
+span.disabled {
+    cursor: default;
+    opacity: 0.6;
+}
