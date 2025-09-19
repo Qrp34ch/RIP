@@ -347,6 +347,7 @@ img {
     order: 1;
     align-self: stretch;
     flex-grow: 1;
+    cursor: pointer;
 }
 
 .text-del {

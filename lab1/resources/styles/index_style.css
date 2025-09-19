@@ -257,6 +257,7 @@ img {
     order: 1;
     align-self: stretch;
     flex-grow: 1;
+    cursor: pointer;
 }
 
 .frame-9 {
@@ -410,6 +411,7 @@ img {
     width: 24px;
     height: 24px;
     border: none;
+
 }
 
 .cart-link {
