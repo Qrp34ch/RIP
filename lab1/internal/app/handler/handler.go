@@ -19,40 +19,40 @@ func NewHandler(r *repository.Repository) *Handler {
 	}
 }
 
-func (h *Handler) GetSteps(ctx *gin.Context) {
-	var steps []repository.Step
+func (h *Handler) GetReactions(ctx *gin.Context) {
+	var reactions []repository.Reaction
 	var err error
 
 	searchQuery := ctx.Query("query") // получаем значение из поля поиска
 	if searchQuery == "" {            // если поле поиска пусто, то просто получаем из репозитория все записи
-		steps, err = h.Repository.GetSteps()
+		reactions, err = h.Repository.GetReactions()
 		if err != nil {
 			logrus.Error(err)
 		}
 	} else {
-		steps, err = h.Repository.GetStepsByTitle(searchQuery) // в ином случае ищем заказ по заголовку
+		reactions, err = h.Repository.GetReactionsByTitle(searchQuery) // в ином случае ищем заказ по заголовку
 		if err != nil {
 			logrus.Error(err)
 		}
 	}
 
-	cartSteps, err := h.Repository.GetStepsInCart()
-	cartCount := len(cartSteps)
+	synthesisReactions, err := h.Repository.GetReactionsInSynthesis()
+	synthesisCount := len(synthesisReactions)
 	if err != nil {
 		logrus.Error(err)
-		cartCount = 0
+		synthesisCount = 0
 	}
 
 	ctx.HTML(http.StatusOK, "index.html", gin.H{
-		"time":      time.Now().Format("15:04:05"),
-		"steps":     steps,
-		"query":     searchQuery, // передаем введенный запрос обратно на страницу
-		"cartCount": cartCount,
+		"time":           time.Now().Format("15:04:05"),
+		"reactions":      reactions,
+		"query":          searchQuery, // передаем введенный запрос обратно на страницу
+		"synthesisCount": synthesisCount,
 		// в ином случае оно будет очищаться при нажатии на кнопку
 	})
 }
 
-func (h *Handler) GetStep(ctx *gin.Context) {
+func (h *Handler) GetReaction(ctx *gin.Context) {
 	idStr := ctx.Param("id") // получаем id заказа из урла (то есть из /order/:id)
 	// через двоеточие мы указываем параметры, которые потом сможем считать через функцию выше
 	id, err := strconv.Atoi(idStr) // так как функция выше возвращает нам строку, нужно ее преобразовать в int
@@ -60,26 +60,26 @@ func (h *Handler) GetStep(ctx *gin.Context) {
 		logrus.Error(err)
 	}
 
-	step, err := h.Repository.GetStep(id)
+	reaction, err := h.Repository.GetReaction(id)
 	if err != nil {
 		logrus.Error(err)
 	}
 
-	ctx.HTML(http.StatusOK, "step.html", gin.H{
-		"step": step,
+	ctx.HTML(http.StatusOK, "reaction.html", gin.H{
+		"reaction": reaction,
 	})
 }
 
-func (h *Handler) GetStepsInCart(ctx *gin.Context) {
-	var steps []repository.Step
+func (h *Handler) GetReactionsInSynthesis(ctx *gin.Context) {
+	var reactions []repository.Reaction
 	var err error
 
-	steps, err = h.Repository.GetStepsInCart()
+	reactions, err = h.Repository.GetReactionsInSynthesis()
 	if err != nil {
 		logrus.Error(err)
 	}
 
-	ctx.HTML(http.StatusOK, "cart.html", gin.H{
-		"steps": steps,
+	ctx.HTML(http.StatusOK, "synthesis.html", gin.H{
+		"reactions": reactions,
 	})
 }

@@ -25,9 +25,9 @@ func StartServer() {
 	// слева название папки, в которую выгрузится наша статика
 	// справа путь к папке, в которой лежит статика
 
-	r.GET("/hello", handler.GetSteps)
-	r.GET("/step/:id", handler.GetStep)
-	r.GET("/cart", handler.GetStepsInCart)
+	r.GET("/reaction", handler.GetReactions)
+	r.GET("/reaction/:id", handler.GetReaction)
+	r.GET("/synthesis/:id", handler.GetReactionsInSynthesis)
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 	log.Println("Server down")

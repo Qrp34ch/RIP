@@ -6,13 +6,13 @@
     <title>Aspirin</title>
     <link href="https://fonts.googleapis.com/css?family=Inter&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="/static/styles/cart_style.css">
+    <link rel="stylesheet" href="/static/styles/synthesis_style.css">
 </head>
 <body>
 <div class="cartpage">
     <div class="header">
         <div class="frame-14">
-            <a href="/hello"><span class="text-header">🏠︎</span></a>
+            <a href="/reaction"><span class="text-header">🏠︎</span></a>
         </div>
         <p class="text-header"><span class="text-header">Производство аспирина</span></p>
         <div class="frame-13"></div>
@@ -22,7 +22,7 @@
 
         <div class="steps">
 
-            {{ range .steps }}
+            {{ range .reactions }}
             <div class="step">
                 <p class="text-cart"><span class="text-cart">{{.Title}}</span></p>
                 <img src="{{.Src}}" class="img" alt="image" />
