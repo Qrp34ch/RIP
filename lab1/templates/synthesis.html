@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aspirin</title>
+    <link href="https://fonts.googleapis.com/css?family=Inter&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/styles/synthesis_style.css">
+</head>
+<body>
+<div class="cartpage">
+    <div class="header">
+        <div class="frame-14">
+            <a href="/reaction"><span class="text-header">🏠︎</span></a>
+        </div>
+        <p class="text-header"><span class="text-header">Производство аспирина</span></p>
+        <div class="frame-13"></div>
+    </div>
+
+    <div class="standartpage">
+        <div class="user">
+            <div class="user_name">
+                <p class="text-user"><span class="text-user">Пользователь</span></p>
+                <div class="fio">
+                    <p class="text-user"><span class="text-user">{{.user}}</span></p>
+                </div>
+            </div>
+            <div class="user_date">
+                <p class="text-user"><span class="text-user">Дата</span></p>
+                <div class="date_frame">
+                    <p class="text-user"><span class="text-user">{{.date}}</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="field_synthesis_frame">
+            <p class="text-fat"><span class="text-fat">Заполните поля для расчетов этапов синтеза</span></p>
+            {{ range .reactions }}
+            <div class="field_synthesis">
+                <div class="field_synthesis_title">
+                    <p class="text-reaction-volume"><span class="text-reaction-volume">{{.StartingMaterial}}</span></p>
+                </div>
+                <div class="field_synthesis_text">
+                    <div>
+                        <input class="field_synthesis_input_text" type="text" placeholder="V, мл"/>
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+        <div class="title-reactions-fields">
+            <div class="materials-title-frame">
+                <div class="dead-img"></div>
+                <div class="starting-material-frame">
+                    <div class="starting-material-titles">
+                        <p class="text-starting-reagent-title"><span class="text-starting-reagent-title">исходное вещество</span></p>
+                        <div class="starting-density">
+                            <p class="text-starting-reagent"><span class="text-starting-reagent">ρ, г/мл</span></p>
+                        </div>
+                        <div class="starting-density">
+                            <p class="text-starting-reagent"><span class="text-starting-reagent">М, г/моль</span></p>
+                        </div>
+                        <div class="starting-density">
+                            <p class="text-starting-reagent"><span class="text-starting-reagent">V, мл</span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="result-material-frame">
+                    <div class="result-material-titles">
+                        <p class="text-result-reagent-title"><span class="text-result-reagent-title">результат</span></p>
+                        <div class="result-density">
+                            <p class="text-result-reagent"><span class="text-result-reagent">ρ, г/мл</span></p>
+                        </div>
+                        <div class="result-density">
+                            <p class="text-result-reagent"><span class="text-result-reagent">М, г/моль</span></p>
+                        </div>
+                        <div class="result-density">
+                            <p class="text-result-reagent"><span class="text-result-reagent">V, мл</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="steps">
+            {{ range .reactions }}
+            <div class="step">
+                <p class="text-cart-title"><span class="text-cart-title">{{.Title}}</span></p>
+                <div class="materials-content-frame">
+                    <div class="dead-img">
+                        <img src="{{.Src}}" class="img" alt="image" />
+                    </div>
+                    <div class="starting-material-frame">
+                        <div class="starting-material-titles">
+                            <p class="text-starting-reagent-title"><span class="text-starting-reagent-title">{{.StartingMaterial}}</span></p>
+                            <div class="starting-density">
+                                <p class="text-starting-reagent"><span class="text-starting-reagent">{{.DensitySM}}</span></p>
+                            </div>
+                            <div class="starting-density">
+                                <p class="text-starting-reagent"><span class="text-starting-reagent">{{.MolarMassSM}}</span></p>
+                            </div>
+                            <div class="starting-density">
+                                <div class="volume-sm"></div>
+                                <!--                                <input class="volume-sm" type="text" placeholder="Введите объем"/>-->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="result-material-frame">
+                        <div class="result-material-titles">
+                            <p class="text-result-reagent-title"><span class="text-result-reagent-title">{{.ResultMaterial}}</span></p>
+                            <div class="result-density">
+                                <p class="text-result-reagent"><span class="text-result-reagent">{{.DensityRM}}</span></p>
+                            </div>
+                            <div class="result-density">
+                                <p class="text-result-reagent"><span class="text-result-reagent">{{.MolarMassRM}}</span></p>
+                            </div>
+                            <div class="result-density">
+                                <div class="volume-rm"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+        <form action ="/delete/{{.id}}" method="POST">
+            <button class="delete-btn">
+                <span class="text-del">Удалить</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

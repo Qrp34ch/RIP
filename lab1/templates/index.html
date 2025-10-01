@@ -12,7 +12,7 @@
 <div class="mainpage">
     <div class="header">
         <div class="frame-14">
-            <a href="/"><span class="text-home">🏠︎</span></a>
+            <a href="/reaction"><span class="text-home">🏠︎</span></a>
         </div>
         <p class="text-title"><span class="text-title">Производство аспирина</span></p>
         <div class="frame-13"></div>
@@ -20,7 +20,7 @@
 
     <div class="standartpage">
 
-        <form action="/" method="GET">
+        <form action="/reaction" method="GET">
             <div class="search">
                 <input type="text" name="query" placeholder="Поиск" value="{{ .query }}" class="text-search">
                 <button type="submit" class="search-button"><img src="http://localhost:9000/aspirinimages/img/search.png" alt="home"></button>
@@ -29,23 +29,18 @@
 
         <div class="steps">
 
-            {{ range .steps }}
+            {{ range .reactions }}
                 <div class="step">
                     <p class="step-name"><span class="step-name">{{.Title}}</span></p>
                     <img src="{{.Src}}" class="image" alt="image" />
                     <div class="frame-9">
-                        <a href="/step/{{ .ID }}">
+                        <a href="/reaction/{{ .ID }}">
                             <div class="frame-17">
                                 <p class="text-details"><span class="text-details">Подробнее</span></p>
                             </div>
                         </a>
-<!--                        <a href="/step/{{ .ID }}">-->
-<!--                            <div class="frame-18">-->
-<!--                                <p class="text-add"><span class="text-add">Добавить</span></p>-->
-<!--                            </div>-->
-<!--                        </a>-->
-                        <form action="/add-step-in-cart" method="post">
-                            <input type="hidden" name="step_id" value="{{ .ID }}">
+                        <form action="/add-reaction-in-synthesis" method="post">
+                            <input type="hidden" name="reaction_id" value="{{ .ID }}">
                             <button class="frame-18">
                                 <span class="text-add">Добавить</span>
                             </button>
@@ -55,11 +50,11 @@
             {{ end }}
         </div>
         <div class="foot">
-            {{if .cartCount}}
-            <a href="/cart/{{.id}}" class="cart-link">
+            {{if .synthesisCount}}
+            <a href="/synthesis/{{ .id }}" class="cart-link">
                 <img src="http://localhost:9000/aspirinimages/img/korzina.png" class="cart" alt="cart">
                 <div class="cart-indicator">
-                    <span class="cart-count">{{.cartCount}}</span>
+                    <span class="cart-count">{{.synthesisCount}}</span>
                 </div>
             </a>
             {{else}}

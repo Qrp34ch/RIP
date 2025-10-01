@@ -1,6 +1,6 @@
 package ds
 
-type Step struct {
+type Reaction struct {
 	ID               int `gorm:"primaryKey"`
 	Title            string
 	Src              string

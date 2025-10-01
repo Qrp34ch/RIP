@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type Cart struct {
+type Synthesis struct {
 	ID          uint      `gorm:"primaryKey"`
 	Status      string    `gorm:"type:varchar(15);not null"`
 	DateCreate  time.Time `gorm:"not null"`

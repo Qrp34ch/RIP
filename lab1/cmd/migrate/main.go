@@ -17,9 +17,9 @@ func main() {
 
 	// Migrate the schema
 	err = db.AutoMigrate(
-		&ds.Step{},
-		&ds.Cart{},
-		&ds.CartStep{},
+		&ds.Reaction{},
+		&ds.Synthesis{},
+		&ds.SynthesisReaction{},
 		&ds.Users{},
 	)
 	if err != nil {

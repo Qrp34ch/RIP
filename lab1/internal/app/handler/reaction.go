@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"lab1/internal/app/ds"
@@ -9,33 +10,35 @@ import (
 	"strings"
 )
 
-func (h *Handler) GetSteps(ctx *gin.Context) {
-	var steps []ds.Step
+func (h *Handler) GetReactions(ctx *gin.Context) {
+	var reactions []ds.Reaction
 	var err error
 
 	searchQuery := ctx.Query("query") // получаем значение из нашего поля
 	if searchQuery == "" {            // если поле поиска пусто, то просто получаем из репозитория все записи
-		steps, err = h.Repository.GetSteps()
+		reactions, err = h.Repository.GetReactions()
 		if err != nil {
 			logrus.Error(err)
 		}
 	} else {
-		steps, err = h.Repository.GetStepsByTitle(searchQuery) // в ином случае ищем заказ по заголовку
+		reactions, err = h.Repository.GetReactionsByTitle(searchQuery) // в ином случае ищем заказ по заголовку
 		if err != nil {
 			logrus.Error(err)
 		}
 	}
 
+	fmt.Printf("яхочупитсыномер2", h.Repository.FindUserSynthesis(1))
+
 	ctx.HTML(http.StatusOK, "index.html", gin.H{
-		"cartCount": h.Repository.GetStepsInCart(),
-		"steps":     steps,
-		"id":        h.Repository.FindUserCart(1),
-		"query":     searchQuery, // передаем введенный запрос обратно на страницу
+		"synthesisCount": h.Repository.GetReactionsInSynthesis(),
+		"reactions":      reactions,
+		"id":             h.Repository.FindUserSynthesis(1),
+		"query":          searchQuery, // передаем введенный запрос обратно на страницу
 		// в ином случае оно будет очищаться при нажатии на кнопку
 	})
 }
 
-func (h *Handler) GetStep(ctx *gin.Context) {
+func (h *Handler) GetReaction(ctx *gin.Context) {
 	idStr := ctx.Param("id") // получаем id заказа из урла (то есть из /order/:id)
 	// через двоеточие мы указываем параметры, которые потом сможем считать через функцию выше
 	id, err := strconv.Atoi(idStr) // так как функция выше возвращает нам строку, нужно ее преобразовать в int
@@ -43,19 +46,19 @@ func (h *Handler) GetStep(ctx *gin.Context) {
 		logrus.Error(err)
 	}
 
-	step, err := h.Repository.GetStep(id)
+	reaction, err := h.Repository.GetReaction(id)
 	if err != nil {
 		logrus.Error(err)
 	}
 
-	ctx.HTML(http.StatusOK, "step.html", gin.H{
-		"step": step,
+	ctx.HTML(http.StatusOK, "reaction.html", gin.H{
+		"reaction": reaction,
 	})
 }
 
-func (h *Handler) AddStepInCart(ctx *gin.Context) {
+func (h *Handler) AddReactionInSynthesis(ctx *gin.Context) {
 	// считываем значение из формы, которую мы добавим в наш шаблон
-	strId := ctx.PostForm("step_id")
+	strId := ctx.PostForm("reaction_id")
 	id, err := strconv.Atoi(strId)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -63,41 +66,43 @@ func (h *Handler) AddStepInCart(ctx *gin.Context) {
 		})
 	}
 	// Вызов функции добавления чата в заявку
-	err = h.Repository.AddStepInCart(uint(id))
+	err = h.Repository.AddReactionInSynthesis(uint(id))
 	if err != nil && !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 		return
 	}
 
 	// после вызова сразу произойдет обновление страницы
-	ctx.Redirect(http.StatusFound, "/")
+	ctx.Redirect(http.StatusFound, "/reaction")
 }
 
-func (h *Handler) GetCart(ctx *gin.Context) {
+func (h *Handler) GetSynthesis(ctx *gin.Context) {
 	idStr := ctx.Param("id") // получаем id заказа из урла (то есть из /order/:id)
 	// через двоеточие мы указываем параметры, которые потом сможем считать через функцию выше
 	id, err := strconv.Atoi(idStr) // так как функция выше возвращает нам строку, нужно ее преобразовать в int
 	if err != nil {
 		logrus.Error(err)
 	}
-	var steps []ds.Step
-	steps, err = h.Repository.GetCart(uint(id))
+	var reactions []ds.Reaction
+	reactions, err = h.Repository.GetSynthesis(uint(id))
 	if err != nil {
 		logrus.Error(err)
 	}
 
-	ctx.HTML(http.StatusOK, "cart.html", gin.H{
-		"steps": steps,
-		"id":    id,
+	ctx.HTML(http.StatusOK, "synthesis.html", gin.H{
+		"reactions": reactions,
+		"id":        id,
+		"user":      h.Repository.GetUserNameByID(1),
+		"date":      h.Repository.GetDateUpdate(uint(id)),
 	})
 }
 
-func (h *Handler) RemoveCart(ctx *gin.Context) {
+func (h *Handler) RemoveSynthesis(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		logrus.Error(err)
 	}
 
-	err = h.Repository.RemoveCart(uint(id))
-	ctx.Redirect(http.StatusFound, "/")
+	err = h.Repository.RemoveSynthesis(uint(id))
+	ctx.Redirect(http.StatusFound, "/reaction")
 }
