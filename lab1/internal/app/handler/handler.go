@@ -44,7 +44,7 @@ func (h *Handler) GetReactions(ctx *gin.Context) {
 	}
 
 	ctx.HTML(http.StatusOK, "index.html", gin.H{
-		"time":           time.Now().Format("15:04:05"),
+
 		"reactions":      reactions,
 		"query":          searchQuery, // передаем введенный запрос обратно на страницу
 		"synthesisCount": synthesisCount,
@@ -81,5 +81,6 @@ func (h *Handler) GetReactionsInSynthesis(ctx *gin.Context) {
 
 	ctx.HTML(http.StatusOK, "synthesis.html", gin.H{
 		"reactions": reactions,
+		"time":      time.Now().Format("02.01.2006"),
 	})
 }
