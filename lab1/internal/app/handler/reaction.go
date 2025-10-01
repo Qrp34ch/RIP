@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"lab1/internal/app/ds"
@@ -26,9 +25,6 @@ func (h *Handler) GetReactions(ctx *gin.Context) {
 			logrus.Error(err)
 		}
 	}
-
-	fmt.Printf("яхочупитсыномер2", h.Repository.FindUserSynthesis(1))
-
 	ctx.HTML(http.StatusOK, "index.html", gin.H{
 		"synthesisCount": h.Repository.GetReactionsInSynthesis(),
 		"reactions":      reactions,
@@ -115,4 +111,94 @@ func (h *Handler) RemoveSynthesis(ctx *gin.Context) {
 
 	err = h.Repository.RemoveSynthesis(uint(id))
 	ctx.Redirect(http.StatusFound, "/reaction")
+}
+func (h *Handler) GetReactionsAPI(ctx *gin.Context) {
+	var reactions []ds.Reaction
+	var err error
+
+	searchQuery := ctx.Query("query") // получаем значение из нашего поля
+	if searchQuery == "" {            // если поле поиска пусто, то просто получаем из репозитория все записи
+		reactions, err = h.Repository.GetReactions()
+		if err != nil {
+			logrus.Error(err)
+		}
+	} else {
+		reactions, err = h.Repository.GetReactionsByTitle(searchQuery) // в ином случае ищем заказ по заголовку
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"reactions": reactions,
+		"query":     searchQuery,
+	})
+}
+func (h *Handler) GetReactionAPI(ctx *gin.Context) {
+	idStr := ctx.Param("id") // получаем id заказа из урла (то есть из /order/:id)
+	// через двоеточие мы указываем параметры, которые потом сможем считать через функцию выше
+	id, err := strconv.Atoi(idStr) // так как функция выше возвращает нам строку, нужно ее преобразовать в int
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	reaction, err := h.Repository.GetReaction(id)
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"reaction": reaction,
+	})
+}
+
+func (h *Handler) CreateReactionAPI(ctx *gin.Context) {
+	var reactionInput struct {
+		Title string `json:"title,omitempty"`
+		//Src              string  json:"src,omitempty"
+		//SrcUr            string  json:"src_ur,omitempty"
+		Details          string  `json:"details,omitempty"`
+		IsDelete         bool    `json:"is_delete,omitempty"`
+		StartingMaterial string  `json:"starting_material,omitempty"`
+		DensitySM        float32 `json:"density_sm,omitempty"`
+		VolumeSM         float32 `json:"volume_sm,omitempty"`
+		MolarMassSM      int     `json:"molar_mass_sm,omitempty"`
+		ResultMaterial   string  `json:"result_material,omitempty"`
+		DensityRM        float32 `json:"density_rm,omitempty"`
+		VolumeRM         float32 `json:"volume_rm,omitempty"`
+		MolarMassRM      int     `json:"molar_mass_rm,omitempty"`
+	}
+
+	if err := ctx.ShouldBindJSON(&reactionInput); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	newReaction := ds.Reaction{
+		Title: reactionInput.Title,
+		//Src              string  json:"src,omitempty"
+		//SrcUr            string  json:"src_ur,omitempty"
+		Details:          reactionInput.Details,
+		IsDelete:         reactionInput.IsDelete,
+		StartingMaterial: reactionInput.StartingMaterial,
+		DensitySM:        reactionInput.DensitySM,
+		VolumeSM:         reactionInput.VolumeSM,
+		MolarMassSM:      reactionInput.MolarMassSM,
+		ResultMaterial:   reactionInput.ResultMaterial,
+		DensityRM:        reactionInput.DensityRM,
+		VolumeRM:         reactionInput.VolumeRM,
+		MolarMassRM:      reactionInput.MolarMassRM,
+	}
+
+	err := h.Repository.AddReaction(&newReaction)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"data":    newReaction,
+		"message": "Реакция успешно создана",
+	})
 }

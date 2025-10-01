@@ -164,3 +164,29 @@ func (r *Repository) SynthesisStatusById(synthesisID uint) (string, error) {
 	}
 	return SynthesisStatus, err
 }
+
+func (r *Repository) AddReaction(reaction *ds.Reaction) error {
+	if reaction.Title == "" {
+		return fmt.Errorf("название реакции обязательно")
+	}
+
+	//err := r.db.Select(
+	//	"Title", "Details", "IsDelete", "StartingMaterial", "DensitySM",
+	//	"VolumeSM", "MolarMassSM", "ResultMaterial", "DensityRM", "VolumeRM", "MolarMassRM",
+	//).Create(reaction).Error
+	err := r.db.Model(&ds.Reaction{}).Create(map[string]interface{}{
+		"title":             reaction.Title,
+		"details":           reaction.Details,
+		"is_delete":         reaction.IsDelete,
+		"starting_material": reaction.StartingMaterial,
+		"density_sm":        reaction.DensitySM,
+		"molar_mass_sm":     reaction.MolarMassSM,
+		"result_material":   reaction.ResultMaterial,
+		"density_rm":        reaction.DensityRM,
+		"molar_mass_rm":     reaction.MolarMassRM,
+	}).Error
+	if err != nil {
+		return fmt.Errorf("ошибка при создании реакции: %w", err)
+	}
+	return nil
+}

@@ -23,6 +23,10 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 	router.GET("/synthesis/:id", h.GetSynthesis)
 	router.POST("/add-reaction-in-synthesis", h.AddReactionInSynthesis)
 	router.POST("/delete/:id", h.RemoveSynthesis)
+
+	router.GET("/API/reaction", h.GetReactionsAPI)
+	router.GET("/API/reaction/:id", h.GetReactionAPI)
+	router.POST("/API/create-reaction", h.CreateReactionAPI)
 }
 
 // RegisterStatic То же самое, что и с маршрутами, регистрируем статику
