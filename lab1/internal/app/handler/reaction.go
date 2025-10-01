@@ -82,6 +82,16 @@ func (h *Handler) GetSynthesis(ctx *gin.Context) {
 	if err != nil {
 		logrus.Error(err)
 	}
+	synthesisStatus, err := h.Repository.SynthesisStatusById(uint(id))
+	if err != nil {
+		logrus.Error(err)
+		ctx.Redirect(http.StatusFound, "/reaction")
+	}
+
+	// если заявка по которой переходим удалена, то перенаправляем на главную
+	if synthesisStatus == "удалён" {
+		ctx.Redirect(http.StatusFound, "/reaction")
+	}
 	var reactions []ds.Reaction
 	reactions, err = h.Repository.GetSynthesis(uint(id))
 	if err != nil {

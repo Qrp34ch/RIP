@@ -155,3 +155,12 @@ func (r *Repository) GetDateUpdate(synthesisID uint) string {
 	dateUpdate = dateUpdateTime.Format("02.01.2006 15:04:05")
 	return dateUpdate
 }
+
+func (r *Repository) SynthesisStatusById(synthesisID uint) (string, error) {
+	var SynthesisStatus string
+	err := r.db.Model(&ds.Synthesis{}).Where("id = ?", synthesisID).Select("status").First(&SynthesisStatus).Error
+	if err != nil {
+		return "", err
+	}
+	return SynthesisStatus, err
+}
