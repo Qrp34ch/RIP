@@ -35,7 +35,17 @@
         </div>
         <div class="field_synthesis_frame">
             <p class="text-fat"><span class="text-fat">Заполните поля для расчетов этапов синтеза</span></p>
-            {{ range .reactions }}
+            <div class="field_synthesis">
+                <div class="field_synthesis_title">
+                    <p class="text-reaction-volume"><span class="text-reaction-volume">Концентрация</span></p>
+                </div>
+                <div class="field_synthesis_text">
+                    <div>
+                        <input class="field_synthesis_input_text" type="text" value="{{.purity}} %"/>
+                    </div>
+                </div>
+            </div>
+            {{ range .synthesisReactions }}
             <div class="field_synthesis">
                 <div class="field_synthesis_title">
                     <p class="text-reaction-volume"><span class="text-reaction-volume">{{.StartingMaterial}}</span></p>
@@ -82,9 +92,11 @@
             </div>
         </div>
         <div class="steps">
-            {{ range .reactions }}
+            {{ range .synthesisReactions }}
             <div class="step">
-                <p class="text-cart-title"><span class="text-cart-title">{{.Title}}</span></p>
+                <p class="text-cart-title">
+                    <span class="text-cart-title">{{.Title}} (количество: {{.Count}})</span>
+                </p>
                 <div class="materials-content-frame">
                     <div class="dead-img">
                         <img src="{{.Src}}" class="img" alt="image" />

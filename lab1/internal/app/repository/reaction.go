@@ -15,7 +15,6 @@ import (
 func (r *Repository) GetReactions() ([]ds.Reaction, error) {
 	var reactions []ds.Reaction
 	err := r.db.Where("is_delete = ?", false).Find(&reactions).Error
-	// обязательно проверяем ошибки, и если они появились - передаем выше, то есть хендлеру
 	if err != nil {
 		return nil, err
 	}
@@ -48,8 +47,6 @@ func (r *Repository) GetReactionsInSynthesis() int64 {
 	var synthesisID uint
 	var count int64
 	creatorID := 1
-	// пока что мы захардкодили id создателя заявки, в последующем вы сделаете авторизацию и будете получать его из JWT
-
 	err := r.db.Model(&ds.Synthesis{}).Where("creator_id = ? AND status = ?", creatorID, "черновик").Select("id").First(&synthesisID).Error
 	if err != nil {
 		return 0
@@ -76,16 +73,13 @@ func (r *Repository) GetSynthesis(synthesisID uint) ([]ds.Reaction, error) {
 	for _, mm := range synthesisReaction {
 		reactionID = mm.ReactionID
 		reaction, err = r.GetReaction(int(reactionID))
-		//if err != nil {
-		//	return nil, err
-		//}
+
 		if err != nil {
 			logrus.Warnf("Reaction %d not found or deleted, skipping", reactionID)
 			continue
 		}
 		result = append(result, reaction)
 	}
-
 	return result, nil
 }
 
@@ -128,18 +122,24 @@ func (r *Repository) AddReactionInSynthesis(id uint) error {
 		return err
 	}
 
-	newSynthesisReaction := ds.SynthesisReaction{
-		SynthesisID: synthesisID,
-		ReactionID:  id,
-	}
+	var existingSynthesisReaction ds.SynthesisReaction
+	err = r.db.Where("synthesis_id = ? AND reaction_id = ?", synthesisID, id).First(&existingSynthesisReaction).Error
 
-	err = r.db.Create(&newSynthesisReaction).Error
+	if err == nil {
+		existingSynthesisReaction.Count++
+		err = r.db.Save(&existingSynthesisReaction).Error
+	} else {
+		newSynthesisReaction := ds.SynthesisReaction{
+			SynthesisID: synthesisID,
+			ReactionID:  id,
+			Count:       1,
+		}
+		err = r.db.Create(&newSynthesisReaction).Error
+	}
 	if err != nil {
 		return err
 	}
-
 	return nil
-
 }
 
 func (r *Repository) RemoveSynthesis(id uint) error {
@@ -157,11 +157,25 @@ func (r *Repository) GetUserNameByID(userID uint) string {
 func (r *Repository) GetDateUpdate(synthesisID uint) string {
 	var dateUpdateTime time.Time
 	var dateUpdate string
-	//не каждый человек знает песни Газманова так что
-	//а я я ясные дни забираю себе а я хмурые дни возвращаю судьбе <3 ВЛАДИК ЧИКАНЧИ ПРИШЕЛ ЗА ШЛЯПОЙ В МАГАЗИН (ОНА ЕМУ НЕ ПОДОШЛА)
 	r.db.Model(&ds.Synthesis{}).Where("id = ?", synthesisID).Select("date_update").First(&dateUpdateTime)
 	dateUpdate = dateUpdateTime.Format("02.01.2006 15:04:05")
 	return dateUpdate
+}
+
+func (r *Repository) GetPurity(synthesisID uint) float32 {
+	var purity float32
+	r.db.Model(&ds.Synthesis{}).Where("id = ?", synthesisID).Select("purity").First(&purity)
+	return purity
+}
+
+func (r *Repository) GetReactionCount(synthesisID uint, reactionID uint) uint {
+	var synthesisReaction ds.SynthesisReaction
+	err := r.db.Where("synthesis_id = ? AND reaction_id = ?", synthesisID, reactionID).First(&synthesisReaction).Error
+
+	if err != nil {
+		return 0
+	}
+	return synthesisReaction.Count
 }
 
 func (r *Repository) SynthesisStatusById(synthesisID uint) (string, error) {
@@ -178,10 +192,6 @@ func (r *Repository) AddReaction(reaction *ds.Reaction) error {
 		return fmt.Errorf("название реакции обязательно")
 	}
 
-	//err := r.db.Select(
-	//	"Title", "Details", "IsDelete", "StartingMaterial", "DensitySM",
-	//	"VolumeSM", "MolarMassSM", "ResultMaterial", "DensityRM", "VolumeRM", "MolarMassRM",
-	//).Create(reaction).Error
 	err := r.db.Model(&ds.Reaction{}).Create(map[string]interface{}{
 		"title":             reaction.Title,
 		"details":           reaction.Details,
@@ -258,11 +268,9 @@ func (r *Repository) DeleteReaction(id uint) error {
 	if err != nil {
 		return fmt.Errorf("Ошибка при удалении реакции с id %d: %w", id, err)
 	}
-
 	if err := r.CleanupDeletedReactionsFromSyntheses(); err != nil {
 		logrus.Warnf("Failed to cleanup deleted reactions: %v", err)
 	}
-
 	return nil
 }
 
@@ -310,24 +318,20 @@ func (r *Repository) extractObjectName(src string) string {
 			}
 		}
 	}
-
 	if !strings.Contains(src, "/") {
 		return "img/" + src
 	}
-
 	logrus.Infof("Using as-is: %s", src)
 	return src
 }
 
 func (r *Repository) CleanupDeletedReactionsFromSyntheses() error {
-	// Находим все удаленные реакции
 	var deletedReactions []ds.Reaction
 	err := r.db.Where("is_delete = ?", true).Find(&deletedReactions).Error
 	if err != nil {
 		return err
 	}
 
-	// Удаляем их из всех синтезов
 	for _, reaction := range deletedReactions {
 		err = r.db.Where("reaction_id = ?", reaction.ID).Delete(&ds.SynthesisReaction{}).Error
 		if err != nil {
@@ -336,7 +340,6 @@ func (r *Repository) CleanupDeletedReactionsFromSyntheses() error {
 			logrus.Infof("Removed deleted reaction %d from all syntheses", reaction.ID)
 		}
 	}
-
 	return nil
 }
 
@@ -347,24 +350,20 @@ func (r *Repository) UploadReactionImage(id uint, fileHeader *multipart.FileHead
 		return fmt.Errorf("реакция с ID %d не найдена", id)
 	}
 
-	// Удаляем старое изображение если есть
 	if reaction.Src != "" {
 		if err := r.DeleteReactionImage(reaction.Src); err != nil {
 			logrus.Errorf("Не удалось удалить старое изображение: %v", err)
 		}
 	}
 
-	// Оставляем оригинальное название файла
 	fileName := fmt.Sprintf("img/reaction_%d_%s", id, fileHeader.Filename)
 
-	// Открываем файл
 	file, err := fileHeader.Open()
 	if err != nil {
 		return fmt.Errorf("ошибка открытия файла: %w", err)
 	}
 	defer file.Close()
 
-	// Загружаем в MinIO
 	_, err = r.minioClient.PutObject(
 		context.Background(),
 		r.bucketName,
@@ -379,14 +378,178 @@ func (r *Repository) UploadReactionImage(id uint, fileHeader *multipart.FileHead
 		return fmt.Errorf("ошибка загрузки в MinIO: %w", err)
 	}
 
-	// Обновляем путь к изображению в базе
 	reaction.Src = "http://localhost:9000/aspirinimages/" + fileName
 	err = r.db.Save(&reaction).Error
 	if err != nil {
-		// Если не удалось сохранить в БД, удаляем из MinIO
 		r.minioClient.RemoveObject(context.Background(), r.bucketName, fileName, minio.RemoveObjectOptions{})
 		return fmt.Errorf("ошибка сохранения пути к изображению: %w", err)
 	}
 
+	return nil
+}
+
+type SynthesisReactionWithCount struct {
+	ds.Reaction
+	Count uint
+}
+
+func (r *Repository) GetSynthesisWithCounts(synthesisID uint) ([]SynthesisReactionWithCount, error) {
+	var synthesisReactions []ds.SynthesisReaction
+	var result []SynthesisReactionWithCount
+
+	err := r.db.Where("synthesis_id = ?", synthesisID).Find(&synthesisReactions).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, sr := range synthesisReactions {
+		reaction, err := r.GetReaction(int(sr.ReactionID))
+		if err != nil {
+			logrus.Warnf("Reaction %d not found or deleted, skipping", sr.ReactionID)
+			continue
+		}
+		result = append(result, SynthesisReactionWithCount{
+			Reaction: reaction,
+			Count:    sr.Count,
+		})
+	}
+	return result, nil
+}
+
+func (r *Repository) GetSynthesisCount(creatorID uint) int64 {
+	var synthesisID uint
+	var count int64
+	//creatorID := 1
+	err := r.db.Model(&ds.Synthesis{}).Where("creator_id = ? AND status = ?", creatorID, "черновик").Select("id").First(&synthesisID).Error
+	if err != nil {
+		return 0
+	}
+
+	err = r.db.Model(&ds.SynthesisReaction{}).Where("synthesis_id = ?", synthesisID).Count(&count).Error
+	if err != nil {
+		logrus.Println("Error counting records in list_chats:", err)
+	}
+
+	return count
+}
+
+func (r *Repository) GetSynthesisID(userID uint) int {
+	var synthesisID int
+	err := r.db.Model(&ds.Synthesis{}).Where("creator_id = ? AND status = ?", userID, "черновик").Select("id").First(&synthesisID).Error
+	if err != nil {
+		return 0
+	}
+	return synthesisID
+}
+
+func (r *Repository) GetSyntheses(status, startDate, endDate string) ([]ds.Synthesis, error) {
+	var synthesis []ds.Synthesis
+	fmt.Println("Параметры фильтрации:", status, startDate, endDate)
+	query := r.db.Where("status != ? AND status != ?", "удалён", "черновик")
+
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	if startDate != "" {
+		start, err := time.Parse("2006-01-02", startDate)
+		if err == nil {
+			query = query.Where("date_create >= ?", start)
+		} else {
+			fmt.Println("Ошибка парсинга startDate:", err)
+		}
+	}
+	if endDate != "" {
+		end, err := time.Parse("2006-01-02", endDate)
+		if err == nil {
+			query = query.Where("date_create <= ?", end.AddDate(0, 0, 1))
+		} else {
+			fmt.Println("Ошибка парсинга endDate:", err)
+		}
+	}
+
+	err := query.Preload("Creator").Preload("Moderator").Find(&synthesis).Error
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения заявок: %w", err)
+	}
+	return synthesis, nil
+}
+
+func (r *Repository) GetSynthesisByID(synthesisID uint) (*ds.Synthesis, []ds.Reaction, error) {
+	var synthesis ds.Synthesis
+
+	err := r.db.
+		Preload("Creator").
+		Preload("Moderator").
+		Where("id = ?", synthesisID).
+		First(&synthesis).Error
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("заявка с ID %d не найдена", synthesisID)
+	}
+
+	var reactions []ds.Reaction
+	err = r.db.
+		Table("reactions").
+		Joins("JOIN synthesis_reactions ON reactions.id = synthesis_reactions.reaction_id").
+		Where("synthesis_reactions.synthesis_id = ?", synthesisID).
+		Find(&reactions).Error
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("ошибка загрузки услуг: %w", err)
+	}
+
+	return &synthesis, reactions, nil
+}
+
+func (r *Repository) UpdateSynthesisPurity(synthesisID uint, Purity float64) error {
+	var synthesis ds.Synthesis
+	err := r.db.Where("id = ? AND status = ?", synthesisID, "черновик").First(&synthesis).Error
+	if err != nil {
+		return fmt.Errorf("заявка-черновик с ID %d не найдена", synthesisID)
+	}
+
+	if Purity > 0 && Purity <= 100 {
+		err = r.db.Model(&ds.Synthesis{}).Where("id = ?", synthesisID).Updates(map[string]interface{}{
+			"purity":      Purity,
+			"date_update": time.Now(),
+		}).Error
+		if err != nil {
+			return fmt.Errorf("ошибка при обновлении синтеза: %w", err)
+		}
+	} else {
+		return fmt.Errorf("Неккоректный ввод концентрации  Концентрация должна быть больше 0 и не больше 100")
+	}
+
+	return nil
+}
+
+func (r *Repository) FormSynthesis(synthesisID uint) error {
+	var synthesis ds.Synthesis
+	err := r.db.Model(&ds.Synthesis{}).Where("id = ? AND status = ?", synthesisID, "черновик").
+		First(&synthesis).Error
+
+	if err != nil {
+		return fmt.Errorf("заявка-черновик с ID %d не найдена", synthesisID)
+	}
+
+	if synthesis.Purity <= 0 || synthesis.Purity > 100 {
+		return fmt.Errorf("поле Purity отсутствует или не соответствует требованиям")
+	}
+
+	var countReactionsAtSynthesis int64
+	err = r.db.Model(&ds.SynthesisReaction{}).Where("synthesis_id = ?", synthesisID).Count(&countReactionsAtSynthesis).Error
+
+	if countReactionsAtSynthesis == 0 {
+		return fmt.Errorf("добавьте хотя бы одну реакцию для формирования синтеза")
+	}
+
+	err = r.db.Model(&ds.Synthesis{}).Where("id = ?", synthesisID).Updates(map[string]interface{}{
+		"status":      "сформирован",
+		"date_update": time.Now(),
+	}).Error
+
+	if err != nil {
+		return fmt.Errorf("ошибка при формировании заявки: %w", err)
+	}
 	return nil
 }

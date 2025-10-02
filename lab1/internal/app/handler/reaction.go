@@ -14,14 +14,14 @@ func (h *Handler) GetReactions(ctx *gin.Context) {
 	var reactions []ds.Reaction
 	var err error
 
-	searchQuery := ctx.Query("query") // получаем значение из нашего поля
-	if searchQuery == "" {            // если поле поиска пусто, то просто получаем из репозитория все записи
+	searchQuery := ctx.Query("query")
+	if searchQuery == "" {
 		reactions, err = h.Repository.GetReactions()
 		if err != nil {
 			logrus.Error(err)
 		}
 	} else {
-		reactions, err = h.Repository.GetReactionsByTitle(searchQuery) // в ином случае ищем заказ по заголовку
+		reactions, err = h.Repository.GetReactionsByTitle(searchQuery)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -30,15 +30,13 @@ func (h *Handler) GetReactions(ctx *gin.Context) {
 		"synthesisCount": h.Repository.GetReactionsInSynthesis(),
 		"reactions":      reactions,
 		"id":             h.Repository.FindUserSynthesis(1),
-		"query":          searchQuery, // передаем введенный запрос обратно на страницу
-		// в ином случае оно будет очищаться при нажатии на кнопку
+		"query":          searchQuery,
 	})
 }
 
 func (h *Handler) GetReaction(ctx *gin.Context) {
-	idStr := ctx.Param("id") // получаем id заказа из урла (то есть из /order/:id)
-	// через двоеточие мы указываем параметры, которые потом сможем считать через функцию выше
-	id, err := strconv.Atoi(idStr) // так как функция выше возвращает нам строку, нужно ее преобразовать в int
+	idStr := ctx.Param("id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		logrus.Error("Invalid ID format:", err)
 		ctx.Redirect(http.StatusFound, "/reaction")
@@ -46,12 +44,8 @@ func (h *Handler) GetReaction(ctx *gin.Context) {
 	}
 
 	reaction, err := h.Repository.GetReaction(id)
-	//if err != nil {
-	//	logrus.Error(err)
-	//}
 	if err != nil {
 		logrus.Warnf("Reaction %d not found or deleted: %v", id, err)
-		// Показываем страницу с ошибкой или перенаправляем
 		ctx.Redirect(http.StatusFound, "/reaction")
 		return
 	}
@@ -62,7 +56,6 @@ func (h *Handler) GetReaction(ctx *gin.Context) {
 }
 
 func (h *Handler) AddReactionInSynthesis(ctx *gin.Context) {
-	// считываем значение из формы, которую мы добавим в наш шаблон
 	strId := ctx.PostForm("reaction_id")
 	id, err := strconv.Atoi(strId)
 	if err != nil {
@@ -83,39 +76,43 @@ func (h *Handler) AddReactionInSynthesis(ctx *gin.Context) {
 	if err != nil && !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 		return
 	}
-
-	// после вызова сразу произойдет обновление страницы
 	ctx.Redirect(http.StatusFound, "/reaction")
 }
 
 func (h *Handler) GetSynthesis(ctx *gin.Context) {
-	idStr := ctx.Param("id") // получаем id заказа из урла (то есть из /order/:id)
-	// через двоеточие мы указываем параметры, которые потом сможем считать через функцию выше
-	id, err := strconv.Atoi(idStr) // так как функция выше возвращает нам строку, нужно ее преобразовать в int
+	idStr := ctx.Param("id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		logrus.Error(err)
+		ctx.Redirect(http.StatusFound, "/reaction")
+		return
 	}
+
 	synthesisStatus, err := h.Repository.SynthesisStatusById(uint(id))
 	if err != nil {
 		logrus.Error(err)
 		ctx.Redirect(http.StatusFound, "/reaction")
+		return
 	}
 
-	// если заявка по которой переходим удалена, то перенаправляем на главную
 	if synthesisStatus == "удалён" {
 		ctx.Redirect(http.StatusFound, "/reaction")
+		return
 	}
-	var reactions []ds.Reaction
-	reactions, err = h.Repository.GetSynthesis(uint(id))
+
+	synthesisReactions, err := h.Repository.GetSynthesisWithCounts(uint(id))
 	if err != nil {
 		logrus.Error(err)
+		ctx.Redirect(http.StatusFound, "/reaction")
+		return
 	}
 
 	ctx.HTML(http.StatusOK, "synthesis.html", gin.H{
-		"reactions": reactions,
-		"id":        id,
-		"user":      h.Repository.GetUserNameByID(1),
-		"date":      h.Repository.GetDateUpdate(uint(id)),
+		"synthesisReactions": synthesisReactions,
+		"id":                 id,
+		"user":               h.Repository.GetUserNameByID(1),
+		"date":               h.Repository.GetDateUpdate(uint(id)),
+		"purity":             h.Repository.GetPurity(uint(id)),
 	})
 }
 
@@ -133,14 +130,14 @@ func (h *Handler) GetReactionsAPI(ctx *gin.Context) {
 	var reactions []ds.Reaction
 	var err error
 
-	searchQuery := ctx.Query("query") // получаем значение из нашего поля
-	if searchQuery == "" {            // если поле поиска пусто, то просто получаем из репозитория все записи
+	searchQuery := ctx.Query("query")
+	if searchQuery == "" {
 		reactions, err = h.Repository.GetReactions()
 		if err != nil {
 			logrus.Error(err)
 		}
 	} else {
-		reactions, err = h.Repository.GetReactionsByTitle(searchQuery) // в ином случае ищем заказ по заголовку
+		reactions, err = h.Repository.GetReactionsByTitle(searchQuery)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -152,12 +149,8 @@ func (h *Handler) GetReactionsAPI(ctx *gin.Context) {
 	})
 }
 func (h *Handler) GetReactionAPI(ctx *gin.Context) {
-	idStr := ctx.Param("id") // получаем id заказа из урла (то есть из /order/:id)
-	// через двоеточие мы указываем параметры, которые потом сможем считать через функцию выше
-	id, err := strconv.Atoi(idStr) // так как функция выше возвращает нам строку, нужно ее преобразовать в int
-	//if err != nil {
-	//	logrus.Error(err)
-	//}
+	idStr := ctx.Param("id")
+	id, err := strconv.Atoi(idStr)
 
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
@@ -165,9 +158,6 @@ func (h *Handler) GetReactionAPI(ctx *gin.Context) {
 	}
 
 	reaction, err := h.Repository.GetReaction(id)
-	//if err != nil {
-	//	logrus.Error(err)
-	//}
 
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "Reaction not found or deleted"})
@@ -298,14 +288,12 @@ func (h *Handler) DeleteReactionAPI(ctx *gin.Context) {
 		return
 	}
 
-	// Проверяем существование записи перед удалением
 	_, err = h.Repository.GetReaction(int(id))
 	if err != nil {
 		h.errorHandler(ctx, http.StatusNotFound, err)
 		return
 	}
 
-	// Используем ваш существующий метод DeleteFuel (мягкое удаление)
 	err = h.Repository.DeleteReaction(uint(id))
 	if err != nil {
 		h.errorHandler(ctx, http.StatusInternalServerError, err)
@@ -340,21 +328,18 @@ func (h *Handler) UploadReactionImageAPI(ctx *gin.Context) {
 		return
 	}
 
-	// Получаем файл из формы
 	file, err := ctx.FormFile("image")
 	if err != nil {
 		h.errorHandler(ctx, http.StatusBadRequest, fmt.Errorf("файл изображения обязателен"))
 		return
 	}
 
-	// Загружаем изображение
 	err = h.Repository.UploadReactionImage(uint(id), file)
 	if err != nil {
 		h.errorHandler(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	// Получаем обновленные данные услуги
 	updatedReaction, err := h.Repository.GetReaction(int(id))
 	if err != nil {
 		h.errorHandler(ctx, http.StatusInternalServerError, err)
@@ -365,5 +350,206 @@ func (h *Handler) UploadReactionImageAPI(ctx *gin.Context) {
 		"status":  "success",
 		"data":    updatedReaction,
 		"message": "Изображение успешно загружено",
+	})
+}
+
+func (h *Handler) GetSynthesisIconAPI(ctx *gin.Context) {
+
+	synthesisID := h.Repository.GetSynthesisID(1)
+	synthesisCount := h.Repository.GetSynthesisCount(1)
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":       "success",
+		"id_synthesis": synthesisID,
+		"items_count":  synthesisCount,
+	})
+}
+
+func (h *Handler) GetSynthesesAPI(ctx *gin.Context) {
+	var filter struct {
+		Status    string `form:"status"`
+		StartDate string `form:"start_date"`
+		EndDate   string `form:"end_date"`
+	}
+
+	type SynthesisWithLogin struct {
+		ID             uint    `form:"id"`
+		Status         string  `form:"status"`
+		DateCreate     string  `form:"date_create"`
+		DateUpdate     string  `form:"date_update"`
+		DateFinish     string  `form:"date_finish"`
+		CreatorID      uint    `form:"creator_id"`
+		ModeratorID    uint    `form:"moderator_id"`
+		Purity         float32 `form:"purity"`
+		CreatorLogin   string  `form:"creator_login"`
+		ModeratorLogin string  `form:"moderator_login"`
+	}
+
+	if err := ctx.ShouldBindQuery(&filter); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	syntheses, err := h.Repository.GetSyntheses(filter.Status, filter.StartDate, filter.EndDate)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	response := make([]SynthesisWithLogin, len(syntheses))
+	for i, calc := range syntheses {
+		response[i] = SynthesisWithLogin{
+			ID:           calc.ID,
+			Status:       calc.Status,
+			DateCreate:   calc.DateCreate.Format("02.01.2006"),
+			DateUpdate:   calc.DateUpdate.Format("02.01.2006"),
+			CreatorLogin: calc.Creator.Login,
+			Purity:       calc.Purity,
+		}
+
+		if calc.DateFinish.Valid {
+			response[i].DateFinish = calc.DateFinish.Time.Format("02.01.2006")
+		}
+
+		if calc.Moderator.ID != 0 {
+			response[i].ModeratorLogin = calc.Moderator.Login
+		}
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   response,
+		"count":  len(response),
+	})
+}
+
+func (h *Handler) GetSynthesisAPI(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	synthesis, reactions, err := h.Repository.GetSynthesisByID(uint(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusNotFound, err)
+		return
+	}
+
+	synthesisFull := struct {
+		ID             uint
+		Status         string
+		DateCreate     string
+		DateUpdate     string
+		DateFinish     string
+		CreatorLogin   string
+		ModeratorLogin string
+		Purity         float32
+		Reactions      []ds.Reaction
+	}{
+		ID:           synthesis.ID,
+		Status:       synthesis.Status,
+		DateCreate:   synthesis.DateCreate.Format("02.01.2006"),
+		DateUpdate:   synthesis.DateUpdate.Format("02.01.2006"),
+		CreatorLogin: synthesis.Creator.Login,
+		Purity:       synthesis.Purity,
+		Reactions:    make([]ds.Reaction, len(reactions)), // используем отдельно загруженные fuels
+	}
+
+	if synthesis.DateFinish.Valid {
+		synthesisFull.DateFinish = synthesis.DateFinish.Time.Format("02.01.2006")
+	}
+
+	if synthesis.Moderator.ID != 0 {
+		synthesisFull.ModeratorLogin = synthesis.Moderator.Login
+	}
+
+	for i, reaction := range reactions {
+		synthesisFull.Reactions[i] = ds.Reaction{
+			ID:               reaction.ID,
+			Title:            reaction.Title,
+			Src:              reaction.Src,
+			SrcUr:            reaction.SrcUr,
+			Details:          reaction.Details,
+			IsDelete:         reaction.IsDelete,
+			StartingMaterial: reaction.StartingMaterial,
+			DensitySM:        reaction.DensitySM,
+			VolumeSM:         reaction.VolumeSM,
+			MolarMassSM:      reaction.MolarMassSM,
+			ResultMaterial:   reaction.ResultMaterial,
+			DensityRM:        reaction.DensityRM,
+			VolumeRM:         reaction.VolumeRM,
+			MolarMassRM:      reaction.MolarMassRM,
+		}
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   synthesisFull,
+	})
+}
+
+func (h *Handler) UpdateSynthesisPurityAPI(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	var input struct {
+		Purity float64 `json:"purity" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	err = h.Repository.UpdateSynthesisPurity(uint(id), input.Purity)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	updatedSynthesis, _, err := h.Repository.GetSynthesisByID(uint(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"data":    updatedSynthesis,
+		"message": "концентрация успешно обновлена",
+	})
+}
+
+func (h *Handler) FormSynthesisAPI(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	err = h.Repository.FormSynthesis(uint(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	updatedSynthesis, reactions, err := h.Repository.GetSynthesisByID(uint(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"data":      updatedSynthesis,
+		"reactions": reactions,
+		"message":   "Синтез успешно сформирован",
 	})
 }

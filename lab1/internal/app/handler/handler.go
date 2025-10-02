@@ -16,7 +16,6 @@ func NewHandler(r *repository.Repository) *Handler {
 	}
 }
 
-// RegisterHandler Функция, в которой мы отдельно регистрируем маршруты, чтобы не писать все в одном месте
 func (h *Handler) RegisterHandler(router *gin.Engine) {
 	router.GET("/reaction", h.GetReactions)
 	router.GET("/reaction/:id", h.GetReaction)
@@ -24,6 +23,7 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 	router.POST("/add-reaction-in-synthesis", h.AddReactionInSynthesis)
 	router.POST("/delete/:id", h.RemoveSynthesis)
 
+	//API
 	//домен услуги (реакции)
 	router.GET("/API/reaction", h.GetReactionsAPI)
 	router.GET("/API/reaction/:id", h.GetReactionAPI)
@@ -34,19 +34,19 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 	router.POST("/API/reaction/:id/image", h.UploadReactionImageAPI)
 
 	//домен заявки (синтез)
+	router.GET("/API/synthesis/icon", h.GetSynthesisIconAPI)
+	router.GET("/API/synthesis", h.GetSynthesesAPI)
+	router.GET("/API/synthesis/:id", h.GetSynthesisAPI)
+	router.PUT("/API/synthesis/:id", h.UpdateSynthesisPurityAPI)
+	router.PUT("/API/synthesis/:id/form", h.FormSynthesisAPI)
 
-	//домен м-м
-
-	//домен пользователь
 }
 
-// RegisterStatic То же самое, что и с маршрутами, регистрируем статику
 func (h *Handler) RegisterStatic(router *gin.Engine) {
 	router.LoadHTMLGlob("templates/*")
 	router.Static("/static", "./resources")
 }
 
-// errorHandler для более удобного вывода ошибок
 func (h *Handler) errorHandler(ctx *gin.Context, errorStatusCode int, err error) {
 	logrus.Error(err.Error())
 	ctx.JSON(errorStatusCode, gin.H{
