@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
+	"mime/multipart"
 	"strings"
 	"time"
 
@@ -334,6 +335,57 @@ func (r *Repository) CleanupDeletedReactionsFromSyntheses() error {
 		} else {
 			logrus.Infof("Removed deleted reaction %d from all syntheses", reaction.ID)
 		}
+	}
+
+	return nil
+}
+
+func (r *Repository) UploadReactionImage(id uint, fileHeader *multipart.FileHeader) error {
+	var reaction ds.Reaction
+	err := r.db.Where("id = ? AND is_delete = false", id).First(&reaction).Error
+	if err != nil {
+		return fmt.Errorf("реакция с ID %d не найдена", id)
+	}
+
+	// Удаляем старое изображение если есть
+	if reaction.Src != "" {
+		if err := r.DeleteReactionImage(reaction.Src); err != nil {
+			logrus.Errorf("Не удалось удалить старое изображение: %v", err)
+		}
+	}
+
+	// Оставляем оригинальное название файла
+	fileName := fmt.Sprintf("img/reaction_%d_%s", id, fileHeader.Filename)
+
+	// Открываем файл
+	file, err := fileHeader.Open()
+	if err != nil {
+		return fmt.Errorf("ошибка открытия файла: %w", err)
+	}
+	defer file.Close()
+
+	// Загружаем в MinIO
+	_, err = r.minioClient.PutObject(
+		context.Background(),
+		r.bucketName,
+		fileName,
+		file,
+		fileHeader.Size,
+		minio.PutObjectOptions{
+			ContentType: fileHeader.Header.Get("Content-Type"),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("ошибка загрузки в MinIO: %w", err)
+	}
+
+	// Обновляем путь к изображению в базе
+	reaction.Src = "http://localhost:9000/aspirinimages/" + fileName
+	err = r.db.Save(&reaction).Error
+	if err != nil {
+		// Если не удалось сохранить в БД, удаляем из MinIO
+		r.minioClient.RemoveObject(context.Background(), r.bucketName, fileName, minio.RemoveObjectOptions{})
+		return fmt.Errorf("ошибка сохранения пути к изображению: %w", err)
 	}
 
 	return nil

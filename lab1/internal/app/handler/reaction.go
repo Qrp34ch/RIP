@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"lab1/internal/app/ds"
@@ -314,5 +315,55 @@ func (h *Handler) DeleteReactionAPI(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Реакция успешно удалена",
+	})
+}
+
+func (h *Handler) AddReactionInSynthesisAPI(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+	err = h.Repository.AddReactionInSynthesis(uint(id))
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Реакция добавлена в заявку",
+	})
+}
+
+func (h *Handler) UploadReactionImageAPI(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	// Получаем файл из формы
+	file, err := ctx.FormFile("image")
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, fmt.Errorf("файл изображения обязателен"))
+		return
+	}
+
+	// Загружаем изображение
+	err = h.Repository.UploadReactionImage(uint(id), file)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Получаем обновленные данные услуги
+	updatedReaction, err := h.Repository.GetReaction(int(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"data":    updatedReaction,
+		"message": "Изображение успешно загружено",
 	})
 }
