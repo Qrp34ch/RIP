@@ -22,7 +22,13 @@ func main() {
 	postgresString := dsn.FromEnv()
 	fmt.Println(postgresString)
 
-	rep, errRep := repository.New(postgresString)
+	minioClient, err := conf.InitMinIO()
+	if err != nil {
+		logrus.Fatalf("error initializing MinIO: %v", err)
+	}
+	logrus.Info("MinIO client initialized successfully")
+
+	rep, errRep := repository.New(postgresString, minioClient, conf.MinIOBucket)
 	if errRep != nil {
 		logrus.Fatalf("error initializing repository: %v", errRep)
 	}

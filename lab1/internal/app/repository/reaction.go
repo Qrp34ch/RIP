@@ -1,8 +1,11 @@
 package repository
 
 import (
+	"context"
 	"fmt"
+	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
+	"strings"
 	"time"
 
 	"lab1/internal/app/ds"
@@ -10,7 +13,7 @@ import (
 
 func (r *Repository) GetReactions() ([]ds.Reaction, error) {
 	var reactions []ds.Reaction
-	err := r.db.Find(&reactions).Error
+	err := r.db.Where("is_delete = ?", false).Find(&reactions).Error
 	// обязательно проверяем ошибки, и если они появились - передаем выше, то есть хендлеру
 	if err != nil {
 		return nil, err
@@ -24,7 +27,7 @@ func (r *Repository) GetReactions() ([]ds.Reaction, error) {
 
 func (r *Repository) GetReaction(id int) (ds.Reaction, error) {
 	reaction := ds.Reaction{}
-	err := r.db.Where("id = ?", id).First(&reaction).Error
+	err := r.db.Where("id = ? AND is_delete = ?", id, false).First(&reaction).Error
 	if err != nil {
 		return ds.Reaction{}, err
 	}
@@ -33,7 +36,7 @@ func (r *Repository) GetReaction(id int) (ds.Reaction, error) {
 
 func (r *Repository) GetReactionsByTitle(title string) ([]ds.Reaction, error) {
 	var reactions []ds.Reaction
-	err := r.db.Where("title ILIKE ?", "%"+title+"%").Find(&reactions).Error
+	err := r.db.Where("title ILIKE ? AND is_delete = ?", "%"+title+"%", false).Find(&reactions).Error
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +75,12 @@ func (r *Repository) GetSynthesis(synthesisID uint) ([]ds.Reaction, error) {
 	for _, mm := range synthesisReaction {
 		reactionID = mm.ReactionID
 		reaction, err = r.GetReaction(int(reactionID))
+		//if err != nil {
+		//	return nil, err
+		//}
 		if err != nil {
-			return nil, err
+			logrus.Warnf("Reaction %d not found or deleted, skipping", reactionID)
+			continue
 		}
 		result = append(result, reaction)
 	}
@@ -188,5 +195,146 @@ func (r *Repository) AddReaction(reaction *ds.Reaction) error {
 	if err != nil {
 		return fmt.Errorf("ошибка при создании реакции: %w", err)
 	}
+	return nil
+}
+
+func (r *Repository) ChangeReaction(id uint, reactionData *ds.Reaction) error {
+
+	var reaction ds.Reaction
+	err := r.db.Where("id = ? AND is_delete = false", id).First(&reaction).Error
+	if err != nil {
+		return fmt.Errorf("реакция с ID %d не найдена", id)
+	}
+
+	updReaction := map[string]interface{}{
+		"title":             reactionData.Title,
+		"src":               reactionData.Src,
+		"src_ur":            reactionData.SrcUr,
+		"details":           reactionData.Details,
+		"is_delete":         reactionData.IsDelete,
+		"starting_material": reactionData.StartingMaterial,
+		"density_sm":        reactionData.DensitySM,
+		"molar_mass_sm":     reactionData.MolarMassSM,
+		"result_material":   reactionData.ResultMaterial,
+		"density_rm":        reactionData.DensityRM,
+		"molar_mass_rm":     reactionData.MolarMassRM,
+	}
+
+	for key, value := range updReaction {
+		if value == "" || value == nil {
+			delete(updReaction, key)
+		}
+	}
+
+	err = r.db.Model(&ds.Reaction{}).Where("id = ?", id).Updates(updReaction).Error
+	if err != nil {
+		return fmt.Errorf("ошибка при обновлении реакции: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Repository) DeleteReaction(id uint) error {
+	var reaction ds.Reaction
+	err := r.db.Where("id = ?", id).First(&reaction).Error
+	if err != nil {
+		return fmt.Errorf("реакция с ID %d не найдена: %w", id, err)
+	}
+
+	if reaction.Src != "" {
+		if err := r.DeleteReactionImage(reaction.Src); err != nil {
+			logrus.Errorf("Не удалось удалить изображение для реакции %d: %v", id, err)
+		}
+	}
+	if reaction.SrcUr != "" {
+		if err := r.DeleteReactionImage(reaction.SrcUr); err != nil {
+			logrus.Errorf("Не удалось удалить изображение для реакции %d: %v", id, err)
+		}
+	}
+
+	err = r.db.Model(&ds.Reaction{}).Where("id = ?", id).UpdateColumn("is_delete", true).Error
+	fmt.Println(id)
+	if err != nil {
+		return fmt.Errorf("Ошибка при удалении реакции с id %d: %w", id, err)
+	}
+
+	if err := r.CleanupDeletedReactionsFromSyntheses(); err != nil {
+		logrus.Warnf("Failed to cleanup deleted reactions: %v", err)
+	}
+
+	return nil
+}
+
+func (r *Repository) DeleteReactionImage(src string) error {
+	if src == "" {
+		logrus.Info("Empty image source, skipping deletion")
+		return nil
+	}
+	objectName := r.extractObjectName(src)
+	logrus.Infof("Extracted object name: '%s' from source: '%s'", objectName, src)
+	if objectName == "" {
+		logrus.Warnf("Could not extract object name from src: %s", src)
+		return nil
+	}
+	logrus.Infof("Attempting to delete object: '%s' from bucket: '%s'", objectName, r.bucketName)
+
+	_, err := r.minioClient.StatObject(context.Background(), r.bucketName, objectName, minio.StatObjectOptions{})
+	if err != nil {
+		logrus.Warnf("Object '%s' not found in MinIO: %v", objectName, err)
+		return nil
+	}
+
+	err = r.minioClient.RemoveObject(context.Background(), r.bucketName, objectName, minio.RemoveObjectOptions{})
+	if err != nil {
+		logrus.Errorf("Failed to delete object '%s' from MinIO: %v", objectName, err)
+		return fmt.Errorf("ошибка при удалении изображения из MinIO: %w", err)
+	}
+
+	logrus.Infof("Successfully deleted object: '%s' from bucket: '%s'", objectName, r.bucketName)
+	return nil
+}
+
+func (r *Repository) extractObjectName(src string) string {
+	logrus.Infof("Processing source URL: %s", src)
+	if strings.Contains(src, "?") {
+		src = strings.Split(src, "?")[0]
+	}
+	if strings.Contains(src, "http://localhost:9000/") {
+		parts := strings.Split(src, "/")
+		for i, part := range parts {
+			if part == r.bucketName && i+1 < len(parts) {
+				objectPath := strings.Join(parts[i+1:], "/")
+				logrus.Infof("Extracted object path: %s", objectPath)
+				return objectPath
+			}
+		}
+	}
+
+	if !strings.Contains(src, "/") {
+		return "img/" + src
+	}
+
+	logrus.Infof("Using as-is: %s", src)
+	return src
+}
+
+func (r *Repository) CleanupDeletedReactionsFromSyntheses() error {
+	// Находим все удаленные реакции
+	var deletedReactions []ds.Reaction
+	err := r.db.Where("is_delete = ?", true).Find(&deletedReactions).Error
+	if err != nil {
+		return err
+	}
+
+	// Удаляем их из всех синтезов
+	for _, reaction := range deletedReactions {
+		err = r.db.Where("reaction_id = ?", reaction.ID).Delete(&ds.SynthesisReaction{}).Error
+		if err != nil {
+			logrus.Warnf("Failed to remove reaction %d from syntheses: %v", reaction.ID, err)
+		} else {
+			logrus.Infof("Removed deleted reaction %d from all syntheses", reaction.ID)
+		}
+	}
+
 	return nil
 }

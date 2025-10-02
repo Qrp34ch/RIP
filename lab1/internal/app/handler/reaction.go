@@ -39,12 +39,20 @@ func (h *Handler) GetReaction(ctx *gin.Context) {
 	// через двоеточие мы указываем параметры, которые потом сможем считать через функцию выше
 	id, err := strconv.Atoi(idStr) // так как функция выше возвращает нам строку, нужно ее преобразовать в int
 	if err != nil {
-		logrus.Error(err)
+		logrus.Error("Invalid ID format:", err)
+		ctx.Redirect(http.StatusFound, "/reaction")
+		return
 	}
 
 	reaction, err := h.Repository.GetReaction(id)
+	//if err != nil {
+	//	logrus.Error(err)
+	//}
 	if err != nil {
-		logrus.Error(err)
+		logrus.Warnf("Reaction %d not found or deleted: %v", id, err)
+		// Показываем страницу с ошибкой или перенаправляем
+		ctx.Redirect(http.StatusFound, "/reaction")
+		return
 	}
 
 	ctx.HTML(http.StatusOK, "reaction.html", gin.H{
@@ -60,8 +68,16 @@ func (h *Handler) AddReactionInSynthesis(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
+		return
 	}
-	// Вызов функции добавления чата в заявку
+
+	_, err = h.Repository.GetReaction(id)
+	if err != nil {
+		logrus.Warnf("Cannot add deleted reaction %d to synthesis", id)
+		ctx.Redirect(http.StatusFound, "/reaction")
+		return
+	}
+
 	err = h.Repository.AddReactionInSynthesis(uint(id))
 	if err != nil && !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 		return
@@ -138,13 +154,23 @@ func (h *Handler) GetReactionAPI(ctx *gin.Context) {
 	idStr := ctx.Param("id") // получаем id заказа из урла (то есть из /order/:id)
 	// через двоеточие мы указываем параметры, которые потом сможем считать через функцию выше
 	id, err := strconv.Atoi(idStr) // так как функция выше возвращает нам строку, нужно ее преобразовать в int
+	//if err != nil {
+	//	logrus.Error(err)
+	//}
+
 	if err != nil {
-		logrus.Error(err)
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
 	}
 
 	reaction, err := h.Repository.GetReaction(id)
+	//if err != nil {
+	//	logrus.Error(err)
+	//}
+
 	if err != nil {
-		logrus.Error(err)
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Reaction not found or deleted"})
+		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
@@ -200,5 +226,93 @@ func (h *Handler) CreateReactionAPI(ctx *gin.Context) {
 		"status":  "success",
 		"data":    newReaction,
 		"message": "Реакция успешно создана",
+	})
+}
+
+func (h *Handler) ChangeReactionAPI(ctx *gin.Context) {
+	idReactionStr := ctx.Param("id")
+	id, err := strconv.Atoi(idReactionStr)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+	var reactionInput struct {
+		Title            string  `json:"title,omitempty"`
+		Src              string  `json:"src,omitempty"`
+		SrcUr            string  `json:"src_ur,omitempty"`
+		Details          string  `json:"details,omitempty"`
+		IsDelete         bool    `json:"is_delete,omitempty"`
+		StartingMaterial string  `json:"starting_material,omitempty"`
+		DensitySM        float32 `json:"density_sm,omitempty"`
+		VolumeSM         float32 `json:"volume_sm,omitempty"`
+		MolarMassSM      int     `json:"molar_mass_sm,omitempty"`
+		ResultMaterial   string  `json:"result_material,omitempty"`
+		DensityRM        float32 `json:"density_rm,omitempty"`
+		VolumeRM         float32 `json:"volume_rm,omitempty"`
+		MolarMassRM      int     `json:"molar_mass_rm,omitempty"`
+	}
+
+	if err := ctx.ShouldBindJSON(&reactionInput); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	changeReaction := ds.Reaction{
+		Title:            reactionInput.Title,
+		Src:              reactionInput.Src,
+		SrcUr:            reactionInput.SrcUr,
+		Details:          reactionInput.Details,
+		IsDelete:         reactionInput.IsDelete,
+		StartingMaterial: reactionInput.StartingMaterial,
+		DensitySM:        reactionInput.DensitySM,
+		VolumeSM:         reactionInput.VolumeSM,
+		MolarMassSM:      reactionInput.MolarMassSM,
+		ResultMaterial:   reactionInput.ResultMaterial,
+		DensityRM:        reactionInput.DensityRM,
+		VolumeRM:         reactionInput.VolumeRM,
+		MolarMassRM:      reactionInput.MolarMassRM,
+	}
+	err = h.Repository.ChangeReaction(uint(id), &changeReaction)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	updatedReaction, err := h.Repository.GetReaction(int(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"data":    updatedReaction,
+		"message": "Реакция успешно обновлена",
+	})
+}
+
+func (h *Handler) DeleteReactionAPI(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	// Проверяем существование записи перед удалением
+	_, err = h.Repository.GetReaction(int(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusNotFound, err)
+		return
+	}
+
+	// Используем ваш существующий метод DeleteFuel (мягкое удаление)
+	err = h.Repository.DeleteReaction(uint(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Реакция успешно удалена",
 	})
 }
