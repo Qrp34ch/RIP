@@ -199,12 +199,12 @@ func (h *Handler) CreateReactionAPI(ctx *gin.Context) {
 		IsDelete:         reactionInput.IsDelete,
 		StartingMaterial: reactionInput.StartingMaterial,
 		DensitySM:        reactionInput.DensitySM,
-		VolumeSM:         reactionInput.VolumeSM,
-		MolarMassSM:      reactionInput.MolarMassSM,
-		ResultMaterial:   reactionInput.ResultMaterial,
-		DensityRM:        reactionInput.DensityRM,
-		VolumeRM:         reactionInput.VolumeRM,
-		MolarMassRM:      reactionInput.MolarMassRM,
+		//VolumeSM:         reactionInput.VolumeSM,
+		MolarMassSM:    reactionInput.MolarMassSM,
+		ResultMaterial: reactionInput.ResultMaterial,
+		DensityRM:      reactionInput.DensityRM,
+		//VolumeRM:         reactionInput.VolumeRM,
+		MolarMassRM: reactionInput.MolarMassRM,
 	}
 
 	err := h.Repository.AddReaction(&newReaction)
@@ -256,12 +256,12 @@ func (h *Handler) ChangeReactionAPI(ctx *gin.Context) {
 		IsDelete:         reactionInput.IsDelete,
 		StartingMaterial: reactionInput.StartingMaterial,
 		DensitySM:        reactionInput.DensitySM,
-		VolumeSM:         reactionInput.VolumeSM,
-		MolarMassSM:      reactionInput.MolarMassSM,
-		ResultMaterial:   reactionInput.ResultMaterial,
-		DensityRM:        reactionInput.DensityRM,
-		VolumeRM:         reactionInput.VolumeRM,
-		MolarMassRM:      reactionInput.MolarMassRM,
+		//VolumeSM:         reactionInput.VolumeSM,
+		MolarMassSM:    reactionInput.MolarMassSM,
+		ResultMaterial: reactionInput.ResultMaterial,
+		DensityRM:      reactionInput.DensityRM,
+		//VolumeRM:         reactionInput.VolumeRM,
+		MolarMassRM: reactionInput.MolarMassRM,
 	}
 	err = h.Repository.ChangeReaction(uint(id), &changeReaction)
 	if err != nil {
@@ -475,12 +475,12 @@ func (h *Handler) GetSynthesisAPI(ctx *gin.Context) {
 			IsDelete:         reaction.IsDelete,
 			StartingMaterial: reaction.StartingMaterial,
 			DensitySM:        reaction.DensitySM,
-			VolumeSM:         reaction.VolumeSM,
-			MolarMassSM:      reaction.MolarMassSM,
-			ResultMaterial:   reaction.ResultMaterial,
-			DensityRM:        reaction.DensityRM,
-			VolumeRM:         reaction.VolumeRM,
-			MolarMassRM:      reaction.MolarMassRM,
+			//VolumeSM:         reaction.VolumeSM,
+			MolarMassSM:    reaction.MolarMassSM,
+			ResultMaterial: reaction.ResultMaterial,
+			DensityRM:      reaction.DensityRM,
+			//VolumeRM:         reaction.VolumeRM,
+			MolarMassRM: reaction.MolarMassRM,
 		}
 	}
 
@@ -551,5 +551,49 @@ func (h *Handler) FormSynthesisAPI(ctx *gin.Context) {
 		"data":      updatedSynthesis,
 		"reactions": reactions,
 		"message":   "Синтез успешно сформирован",
+	})
+}
+
+func (h *Handler) CompleteOrRejectSynthesisAPI(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	var input struct {
+		NewStatus bool `json:"new_status" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	moderatorID := uint(2)
+
+	err = h.Repository.CompleteOrRejectSynthesis(uint(id), moderatorID, input.NewStatus)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	updatedSynthesis, reactions, err := h.Repository.GetSynthesisByID(uint(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	message := "Заявка отклонена"
+	if input.NewStatus {
+		message = "Заявка завершена"
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"data":      updatedSynthesis,
+		"reactions": reactions,
+		"message":   message,
 	})
 }

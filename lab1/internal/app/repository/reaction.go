@@ -133,6 +133,8 @@ func (r *Repository) AddReactionInSynthesis(id uint) error {
 			SynthesisID: synthesisID,
 			ReactionID:  id,
 			Count:       1,
+			VolumeSM:    10.0,
+			VolumeRM:    0,
 		}
 		err = r.db.Create(&newSynthesisReaction).Error
 	}
@@ -390,6 +392,9 @@ func (r *Repository) UploadReactionImage(id uint, fileHeader *multipart.FileHead
 
 type SynthesisReactionWithCount struct {
 	ds.Reaction
+	VolumeSM float32 `json:"volume_sm"`
+	VolumeRM float32 `json:"volume_rm,omitempty"`
+	//SynthesisReactionID uint    `json:"synthesis_reaction_id"`
 	Count uint
 }
 
@@ -401,15 +406,19 @@ func (r *Repository) GetSynthesisWithCounts(synthesisID uint) ([]SynthesisReacti
 	if err != nil {
 		return nil, err
 	}
+
 	for _, sr := range synthesisReactions {
 		reaction, err := r.GetReaction(int(sr.ReactionID))
 		if err != nil {
 			logrus.Warnf("Reaction %d not found or deleted, skipping", sr.ReactionID)
 			continue
 		}
+
 		result = append(result, SynthesisReactionWithCount{
 			Reaction: reaction,
 			Count:    sr.Count,
+			VolumeSM: sr.VolumeSM,
+			VolumeRM: sr.VolumeRM,
 		})
 	}
 	return result, nil
@@ -551,5 +560,61 @@ func (r *Repository) FormSynthesis(synthesisID uint) error {
 	if err != nil {
 		return fmt.Errorf("ошибка при формировании заявки: %w", err)
 	}
+	return nil
+}
+
+func (r *Repository) CompleteOrRejectSynthesis(synthesisID uint, moderatorID uint, newStatus bool) error {
+	var synthesis ds.Synthesis
+	err := r.db.Model(&ds.Synthesis{}).Where("id = ? AND status = ?", synthesisID, "сформирован").First(&synthesis).Error
+
+	if err != nil {
+		return fmt.Errorf("сформированная заявка с ID %d не найдена", synthesisID)
+	}
+	var updStatus string
+	if newStatus {
+		updStatus = "завершён"
+	} else {
+		updStatus = "отклонён"
+	}
+	updates := map[string]interface{}{
+		"status":       updStatus,
+		"date_update":  time.Now(),
+		"date_finish":  time.Now(),
+		"moderator_id": moderatorID,
+	}
+
+	if newStatus {
+		var synthesisReaction []ds.SynthesisReaction
+		err = r.db.Where("synthesis_id = ?", synthesisID).Find(&synthesisReaction).Error
+		if err != nil {
+			return fmt.Errorf("ошибка получения данных о синтезе: %w", err)
+		}
+
+		for _, reactionFromSynthesis := range synthesisReaction {
+			var reaction ds.Reaction
+			var res float32
+			err = r.db.Where("id = ?", reactionFromSynthesis.ReactionID).Find(&reaction).Error
+			if err != nil {
+				return fmt.Errorf("ошибка получения данных о синтезе: %w", err)
+			}
+			// Vk = (c*Vs*ps*Mk)/(pk*Ms)
+			purity := synthesis.Purity
+			volumeSM := reactionFromSynthesis.VolumeSM
+			molarMassSM := float32(reaction.MolarMassSM)
+			molarMassRM := float32(reaction.MolarMassRM)
+			count := float32(reactionFromSynthesis.Count)
+			densitySM := reaction.DensitySM
+			densityRM := reaction.DensityRM
+			res = ((purity * volumeSM * densitySM * molarMassRM) / (densityRM * molarMassSM)) * count
+
+			r.db.Model(&ds.SynthesisReaction{}).Where("id = ?", reactionFromSynthesis.ID).Update("volume_rm", res)
+		}
+	}
+
+	err = r.db.Model(&ds.Synthesis{}).Where("id = ?", synthesisID).Updates(updates).Error
+	if err != nil {
+		return fmt.Errorf("ошибка при обновлении заявки: %w", err)
+	}
+
 	return nil
 }
