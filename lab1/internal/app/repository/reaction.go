@@ -478,7 +478,7 @@ func (r *Repository) GetSyntheses(status, startDate, endDate string) ([]ds.Synth
 
 	err := query.Preload("Creator").Preload("Moderator").Find(&synthesis).Error
 	if err != nil {
-		return nil, fmt.Errorf("ошибка получения заявок: %w", err)
+		return nil, fmt.Errorf("ошибка получения синтеза: %w", err)
 	}
 	return synthesis, nil
 }
@@ -493,7 +493,7 @@ func (r *Repository) GetSynthesisByID(synthesisID uint) (*ds.Synthesis, []ds.Rea
 		First(&synthesis).Error
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("заявка с ID %d не найдена", synthesisID)
+		return nil, nil, fmt.Errorf("синтез с ID %d не найдена", synthesisID)
 	}
 
 	var reactions []ds.Reaction
@@ -504,7 +504,7 @@ func (r *Repository) GetSynthesisByID(synthesisID uint) (*ds.Synthesis, []ds.Rea
 		Find(&reactions).Error
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("ошибка загрузки услуг: %w", err)
+		return nil, nil, fmt.Errorf("ошибка загрузки реакции: %w", err)
 	}
 
 	return &synthesis, reactions, nil
@@ -514,7 +514,7 @@ func (r *Repository) UpdateSynthesisPurity(synthesisID uint, Purity float64) err
 	var synthesis ds.Synthesis
 	err := r.db.Where("id = ? AND status = ?", synthesisID, "черновик").First(&synthesis).Error
 	if err != nil {
-		return fmt.Errorf("заявка-черновик с ID %d не найдена", synthesisID)
+		return fmt.Errorf("синтез-черновик с ID %d не найдена", synthesisID)
 	}
 
 	if Purity > 0 && Purity <= 100 {
@@ -538,7 +538,7 @@ func (r *Repository) FormSynthesis(synthesisID uint) error {
 		First(&synthesis).Error
 
 	if err != nil {
-		return fmt.Errorf("заявка-черновик с ID %d не найдена", synthesisID)
+		return fmt.Errorf("синтез-черновик с ID %d не найден", synthesisID)
 	}
 
 	if synthesis.Purity <= 0 || synthesis.Purity > 100 {
@@ -558,7 +558,7 @@ func (r *Repository) FormSynthesis(synthesisID uint) error {
 	}).Error
 
 	if err != nil {
-		return fmt.Errorf("ошибка при формировании заявки: %w", err)
+		return fmt.Errorf("ошибка при формировании синтеза: %w", err)
 	}
 	return nil
 }
@@ -568,7 +568,7 @@ func (r *Repository) CompleteOrRejectSynthesis(synthesisID uint, moderatorID uin
 	err := r.db.Model(&ds.Synthesis{}).Where("id = ? AND status = ?", synthesisID, "сформирован").First(&synthesis).Error
 
 	if err != nil {
-		return fmt.Errorf("сформированная заявка с ID %d не найдена", synthesisID)
+		return fmt.Errorf("сформированный синтез с ID %d не найден", synthesisID)
 	}
 	var updStatus string
 	if newStatus {
@@ -613,8 +613,164 @@ func (r *Repository) CompleteOrRejectSynthesis(synthesisID uint, moderatorID uin
 
 	err = r.db.Model(&ds.Synthesis{}).Where("id = ?", synthesisID).Updates(updates).Error
 	if err != nil {
-		return fmt.Errorf("ошибка при обновлении заявки: %w", err)
+		return fmt.Errorf("ошибка при обновлении синтеза: %w", err)
 	}
 
 	return nil
+}
+
+func (r *Repository) DeleteSynthesis(synthesisID uint) error {
+	var synthesis ds.Synthesis
+	err := r.db.Where("id = ?", synthesisID).First(&synthesis).Error
+	if err != nil {
+		return fmt.Errorf("синтез с ID %d не найдена", synthesisID)
+	}
+
+	err = r.db.Model(&ds.Synthesis{}).Where("id = ?", synthesisID).Updates(map[string]interface{}{
+		"status":      "удалён",
+		"date_update": time.Now(),
+	}).Error
+
+	if err != nil {
+		return fmt.Errorf("ошибка при удалении синтеза: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Repository) RemoveReactionFromSynthesis(synthesisID uint, reactionID uint) error {
+	var synthesis ds.Synthesis
+	err := r.db.Where("id = ? AND status = ?", synthesisID, "черновик").First(&synthesis).Error
+	if err != nil {
+		return fmt.Errorf("синтез-черновик с ID %d не найден", synthesisID)
+	}
+
+	var reaction ds.Reaction
+	err = r.db.Where("id = ? AND is_delete = false", reactionID).First(&reaction).Error
+	if err != nil {
+		return fmt.Errorf("реакция с ID %d не найдена", reactionID)
+	}
+	var count int64
+	err = r.db.Model(&ds.SynthesisReaction{}).Where("synthesis_id = ? AND reaction_id = ?", synthesisID, reactionID).Count(&count).Error
+	if err != nil || count == 0 {
+		return fmt.Errorf("реакция с ID %d в синтезе с ID %d не найдена", reactionID, synthesisID)
+	}
+	count = 0
+	err = r.db.Model(&ds.SynthesisReaction{}).Where("synthesis_id = ? AND reaction_id = ?", synthesisID, reactionID).Select("count").First(&count).Error
+	count -= 1
+	if count == 0 {
+		err = r.db.Where("synthesis_id = ? AND reaction_id = ?", synthesisID, reactionID).Delete(&ds.SynthesisReaction{}).Error
+		if err != nil {
+			return fmt.Errorf("ошибка при удалении реакции из синтеза: %w", err)
+		}
+	} else {
+		err = r.db.Model(&ds.SynthesisReaction{}).Where("synthesis_id = ? AND reaction_id = ?", synthesisID, reactionID).UpdateColumn("count", uint(count)).Error
+		if err != nil {
+			return fmt.Errorf("ошибка при удалении реакции из синтеза: %w", err)
+		}
+	}
+	return nil
+}
+
+func (r *Repository) UpdateReactionInSynthesis(synthesisID uint, reactionID uint, volume float64) error {
+	var synthesis ds.Synthesis
+	err := r.db.Where("id = ? AND status = ?", synthesisID, "черновик").First(&synthesis).Error
+	if err != nil {
+		return fmt.Errorf("синтез-черновик с ID %d не найден", synthesisID)
+	}
+
+	var reaction ds.Reaction
+	err = r.db.Where("id = ? AND is_delete = false", reactionID).First(&reaction).Error
+	if err != nil {
+		return fmt.Errorf("реакция с ID %d не найдена", reactionID)
+	}
+
+	var synthesisReaction ds.SynthesisReaction
+	err = r.db.Where("synthesis_id = ? AND reaction_id = ?", synthesisID, reactionID).First(&synthesisReaction).Error
+	if err != nil {
+		return fmt.Errorf("реакция не найдена в синтезе")
+	}
+
+	err = r.db.Model(&ds.SynthesisReaction{}).
+		Where("synthesis_id = ? AND reaction_id = ?", synthesisID, reactionID).
+		Update("volume_sm", volume).Error
+
+	if err != nil {
+		return fmt.Errorf("ошибка при обновлении реакции в синтезе: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Repository) RegisterUser(login, password, fio string, isModerator bool) (*ds.Users, error) {
+	if login == "" {
+		return nil, fmt.Errorf("логин не может быть пустым")
+	}
+	if password == "" {
+		return nil, fmt.Errorf("пароль не может быть пустым")
+	}
+	var existingUser ds.Users
+	err := r.db.Where("login = ?", login).First(&existingUser).Error
+	if err == nil {
+		return nil, fmt.Errorf("пользователь с логином '%s' уже существует", login)
+	}
+
+	newUser := ds.Users{
+		Login:       login,
+		Password:    password,
+		IsModerator: isModerator,
+		FIO:         fio,
+	}
+
+	err = r.db.Create(&newUser).Error
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при создании пользователя: %w", err)
+	}
+	newUser.Password = ""
+	return &newUser, nil
+}
+
+func (r *Repository) GetUserProfile(userID uint) (*ds.Users, error) {
+	var user ds.Users
+
+	err := r.db.Where("id = ?", userID).First(&user).Error
+	if err != nil {
+		return nil, fmt.Errorf("пользователь не найден")
+	}
+	user.Password = ""
+	return &user, nil
+}
+
+func (r *Repository) AuthenticateUser(login, password string) (*ds.Users, error) {
+	var user ds.Users
+	err := r.db.Where("login = ?", login).First(&user).Error
+	if err != nil {
+		return nil, fmt.Errorf("неверный логин или пароль")
+	}
+	if user.Password != password {
+		return nil, fmt.Errorf("неверный логин или пароль")
+	}
+	user.Password = ""
+	return &user, nil
+}
+
+func (r *Repository) UpdateUser(userID uint, updates map[string]interface{}) (*ds.Users, error) {
+	if login, exists := updates["login"]; exists && login != "" {
+		var existingUser ds.Users
+		err := r.db.Where("login = ? AND id != ?", login, userID).First(&existingUser).Error
+		if err == nil {
+			return nil, fmt.Errorf("логин '%s' уже занят", login)
+		}
+	}
+	if len(updates) > 0 {
+		err := r.db.Model(&ds.Users{}).Where("id = ?", userID).Updates(updates).Error
+		if err != nil {
+			return nil, fmt.Errorf("ошибка обновления: %w", err)
+		}
+	}
+	var user ds.Users
+	r.db.Where("id = ?", userID).First(&user)
+	user.Password = ""
+
+	return &user, nil
 }

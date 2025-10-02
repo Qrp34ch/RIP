@@ -597,3 +597,172 @@ func (h *Handler) CompleteOrRejectSynthesisAPI(ctx *gin.Context) {
 		"message":   message,
 	})
 }
+
+func (h *Handler) DeleteSynthesisAPI(ctx *gin.Context) {
+	id := h.Repository.GetSynthesisID(1)
+
+	err := h.Repository.DeleteSynthesis(uint(id))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Синтез успешно удален",
+	})
+}
+
+func (h *Handler) RemoveReactionFromSynthesisAPI(ctx *gin.Context) {
+	synthesisID := h.Repository.GetSynthesisID(1)
+	reactionIDStr := ctx.Query("reaction_id")
+	reactionID, err := strconv.Atoi(reactionIDStr)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	err = h.Repository.RemoveReactionFromSynthesis(uint(synthesisID), uint(reactionID))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Реакция удалена из синтеза",
+	})
+}
+
+func (h *Handler) UpdateReactionInSynthesisAPI(ctx *gin.Context) {
+	synthesisID := h.Repository.GetSynthesisID(1)
+
+	var input struct {
+		ReactionID uint    `json:"reaction_id" binding:"required"`
+		VolumeSM   float64 `json:"volume_sm" binding:"required"`
+	}
+	var err error
+	if err = ctx.ShouldBindJSON(&input); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	err = h.Repository.UpdateReactionInSynthesis(uint(synthesisID), input.ReactionID, input.VolumeSM)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Данные реакции обновлены в синтезе",
+	})
+}
+
+func (h *Handler) RegisterUserAPI(ctx *gin.Context) {
+	var input struct {
+		Login       string `json:"login" binding:"required"`
+		Password    string `json:"password" binding:"required"`
+		IsModerator bool   `json:"is_moderator,omitempty"`
+		FIO         string `json:"fio,omitempty"`
+	}
+
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	newUser, err := h.Repository.RegisterUser(input.Login, input.Password, input.FIO, input.IsModerator)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"data":    newUser,
+		"message": "Пользователь успешно зарегистрирован",
+	})
+}
+
+func (h *Handler) GetUserProfileAPI(ctx *gin.Context) {
+	userID := uint(1)
+
+	user, err := h.Repository.GetUserProfile(userID)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusNotFound, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   user,
+	})
+}
+
+func (h *Handler) LoginUserAPI(ctx *gin.Context) {
+	var input struct {
+		Login    string `json:"login" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+	user, err := h.Repository.AuthenticateUser(input.Login, input.Password)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusUnauthorized, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"data":    user,
+		"message": "Аутентификация успешна",
+	})
+}
+
+func (h *Handler) LogoutUserAPI(ctx *gin.Context) {
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Выход выполнен успешно",
+	})
+}
+
+func (h *Handler) UpdateUserAPI(ctx *gin.Context) {
+	userID := uint(1)
+
+	var input struct {
+		Login       *string `json:"login,omitempty"`
+		Name        *string `json:"name,omitempty"`
+		IsModerator *bool   `json:"is_moderator,omitempty"`
+	}
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+	updates := make(map[string]interface{})
+	if input.Login != nil {
+		updates["login"] = *input.Login
+	}
+	if input.Name != nil {
+		updates["name"] = *input.Name
+	}
+	if input.IsModerator != nil {
+		updates["is_moderator"] = *input.IsModerator
+	}
+	if len(updates) == 0 {
+		h.errorHandler(ctx, http.StatusBadRequest, fmt.Errorf("нет полей для обновления"))
+		return
+	}
+	user, err := h.Repository.UpdateUser(userID, updates)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"data":    user,
+		"message": "Данные обновлены",
+	})
+}

@@ -40,18 +40,18 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 	router.PUT("/API/synthesis/:id", h.UpdateSynthesisPurityAPI)
 	router.PUT("/API/synthesis/:id/form", h.FormSynthesisAPI)
 	router.PUT("/API/synthesis/:id/moderate", h.CompleteOrRejectSynthesisAPI)
-	//router.DELETE("/API/synthesis", h.DeleteCombustionCalculationAPI)
+	router.DELETE("/API/synthesis", h.DeleteSynthesisAPI)
 
 	//домен м-м
-	//router.DELETE("/API/reaction-synthesis", h.RemoveFuelFromCombustionAPI)
-	//router.PUT("/API/reaction-synthesis", h.UpdateFuelInCombustionAPI)
+	router.DELETE("/API/reaction-synthesis", h.RemoveReactionFromSynthesisAPI)
+	router.PUT("/API/reaction-synthesis", h.UpdateReactionInSynthesisAPI)
 
 	//домен пользователь
-	//router.POST("/API/users/register", h.RegisterUserAPI)
-	//router.GET("/API/users/profile", h.GetUserProfileAPI)
-	//router.POST("/API/users/login", h.LoginUserAPI)
-	//router.POST("/API/users/logout", h.LogoutUserAPI)
-	//router.PUT("/API/users/profile", h.UpdateUserAPI)
+	router.POST("/API/users/register", h.RegisterUserAPI)
+	router.GET("/API/users/profile", h.GetUserProfileAPI)
+	router.POST("/API/users/login", h.LoginUserAPI)
+	router.POST("/API/users/logout", h.LogoutUserAPI)
+	router.PUT("/API/users/profile", h.UpdateUserAPI)
 }
 
 func (h *Handler) RegisterStatic(router *gin.Engine) {
