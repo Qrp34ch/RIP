@@ -757,7 +757,7 @@ img {
     gap: 10px;
 
     width: 722px;
-    height: 187px;
+    height: auto;
 
 
     /* Inside auto layout */
