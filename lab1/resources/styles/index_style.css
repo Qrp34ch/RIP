@@ -332,7 +332,7 @@ img {
 
     width: 1240px;
     max-width: 1240px;
-    height: 1860px;
+    height: auto;
 
 
     /* Inside auto layout */
