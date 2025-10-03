@@ -14,6 +14,8 @@ type Synthesis struct {
 	CreatorID   uint         `gorm:"not null"`
 	ModeratorID uint
 
+	Purity float32 `gorm:"not null;default:100"`
+
 	Creator   Users `gorm:"foreignKey:CreatorID"`
 	Moderator Users `gorm:"foreignKey:ModeratorID"`
 }
