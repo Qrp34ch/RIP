@@ -6,3 +6,8 @@ access_key = "rot"
 secret_key = "rootroot"
 use_ssl = false
 bucket = "aspirinimages"
+
+[jwt]
+signing_method = "HS256"
+expires_in = "24h"
+token = "your-jwt-secret-key"

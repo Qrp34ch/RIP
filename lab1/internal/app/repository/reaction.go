@@ -754,6 +754,19 @@ func (r *Repository) AuthenticateUser(login, password string) (*ds.Users, error)
 	return &user, nil
 }
 
+func (r *Repository) AuthUser(login, password string) (*ds.Users, error) {
+	var user ds.Users
+	err := r.db.Where("login = ?", login).First(&user).Error
+	if err != nil {
+		return nil, fmt.Errorf("неверный логин или пароль")
+	}
+	if user.Password != password {
+		return nil, fmt.Errorf("неверный логин или пароль")
+	}
+	user.Password = ""
+	return &user, nil
+}
+
 func (r *Repository) UpdateUser(userID uint, updates map[string]interface{}) (*ds.Users, error) {
 	if login, exists := updates["login"]; exists && login != "" {
 		var existingUser ds.Users

@@ -1,13 +1,17 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"lab1/internal/app/ds"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (h *Handler) GetReactions(ctx *gin.Context) {
@@ -700,24 +704,83 @@ func (h *Handler) GetUserProfileAPI(ctx *gin.Context) {
 	})
 }
 
+type LoginReq struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+type LoginResp struct {
+	ExpiresIn   int       `json:"expires_in"`
+	AccessToken string    `json:"access_token"`
+	TokenType   string    `json:"token_type"`
+	User        *UserInfo `json:"user"`
+}
+
+type UserInfo struct {
+	ID          uint   `json:"id" example:"1"`
+	Login       string `json:"login" example:"admin"`
+	FIO         string `json:"fio" example:"Иванов Иван Иванович"`
+	IsModerator bool   `json:"is_moderator" example:"true"`
+}
+
+// LoginUserAPI godoc
+// @Summary User login
+// @Description Authenticate user and return JWT token
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param input body LoginReq true "Login credentials"
+// @Success 200 {object} LoginResp
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 403 {object} object{status=string,description=string} "Forbidden"
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/users/login [post]
 func (h *Handler) LoginUserAPI(ctx *gin.Context) {
-	var input struct {
-		Login    string `json:"login" binding:"required"`
-		Password string `json:"password" binding:"required"`
-	}
-	if err := ctx.ShouldBindJSON(&input); err != nil {
-		h.errorHandler(ctx, http.StatusBadRequest, err)
-		return
-	}
-	user, err := h.Repository.AuthenticateUser(input.Login, input.Password)
+	req := &LoginReq{}
+
+	err := json.NewDecoder(ctx.Request.Body).Decode(req)
 	if err != nil {
-		h.errorHandler(ctx, http.StatusUnauthorized, err)
+		ctx.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"data":    user,
-		"message": "Аутентификация успешна",
+
+	// Аутентифицируем пользователя
+	user, err := h.Repository.AuthUser(req.Login, req.Password)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	cfg := h.Config
+
+	// Генерируем JWT токен
+	token := jwt.NewWithClaims(cfg.JWT.SigningMethod, &ds.JWTClaims{
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(cfg.JWT.ExpiresIn).Unix(),
+			IssuedAt:  time.Now().Unix(),
+			Issuer:    "bitop-admin",
+			Subject:   strconv.FormatUint(uint64(user.ID), 10), // добавляем ID пользователя
+		},
+		UserUUID: uuid.New(),
+		Scopes:   []string{},
+	})
+
+	strToken, err := token.SignedString([]byte(cfg.JWT.Token))
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("cant create str token"))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, LoginResp{
+		ExpiresIn:   int(cfg.JWT.ExpiresIn.Seconds()), // конвертируем в секунды
+		AccessToken: strToken,
+		TokenType:   "Bearer",
+		User: &UserInfo{
+			ID:          user.ID,
+			Login:       user.Login,
+			FIO:         user.FIO,
+			IsModerator: user.IsModerator,
+		},
 	})
 }
 

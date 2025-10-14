@@ -12,6 +12,20 @@ import (
 	"lab1/internal/pkg"
 )
 
+// @title BITOP
+// @version 1.0
+// @description Aspirin
+
+// @contact.name API Support
+// @contact.url https://github.com/Qrp34ch/RIP
+// @contact.email address
+
+// @license.name AS IS (NO WARRANTY)
+
+// @host localhost:8080
+// @schemes https http
+// @BasePath /
+
 func main() {
 	router := gin.Default()
 	conf, err := config.NewConfig()
@@ -33,7 +47,7 @@ func main() {
 		logrus.Fatalf("error initializing repository: %v", errRep)
 	}
 
-	hand := handler.NewHandler(rep)
+	hand := handler.NewHandler(conf, rep)
 
 	application := pkg.NewApp(conf, router, hand)
 	application.RunApp()
