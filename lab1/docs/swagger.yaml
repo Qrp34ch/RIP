@@ -1,0 +1,83 @@
+basePath: /
+definitions:
+  handler.loginReq:
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+    type: object
+  handler.loginResp:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      token_type:
+        type: string
+    type: object
+host: 127.0.0.1
+info:
+  contact:
+    email: address
+    name: API Support
+    url: https://github.com/Qrp34ch/RIP
+  description: Aspirin
+  license:
+    name: AS IS (NO WARRANTY)
+  title: BITOP
+  version: "1.0"
+paths:
+  /API/users/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT token
+      parameters:
+      - description: Login credentials
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handler.loginReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.loginResp'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              description:
+                type: string
+              status:
+                type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              description:
+                type: string
+              status:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              description:
+                type: string
+              status:
+                type: string
+            type: object
+      summary: User login
+      tags:
+      - Users
+schemes:
+- https
+- http
+swagger: "2.0"
