@@ -31,39 +31,38 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 	router.POST("/delete/:id", h.RemoveSynthesis)
 
 	//API
-	//домен услуги (реакции)
-	router.GET("/API/reaction", h.GetReactionsAPI)
-	router.GET("/API/reaction/:id", h.GetReactionAPI)
-	router.POST("/API/create-reaction", h.CreateReactionAPI)
-	router.PUT("/API/reaction/:id", h.ChangeReactionAPI)
-	router.DELETE("/API/reaction/:id", h.DeleteReactionAPI)
-	router.POST("/API/reaction/:id/add-reaction-in-synthesis", h.AddReactionInSynthesisAPI)
-	router.POST("/API/reaction/:id/image", h.UploadReactionImageAPI)
-
 	authM := router.Group("")
 	authM.Use(h.WithAuthCheck(true))
 	authU := router.Group("")
 	authU.Use(h.WithAuthCheck(false))
+	//домен услуги (реакции)
+	router.GET("/API/reaction", h.GetReactionsAPI)
+	router.GET("/API/reaction/:id", h.GetReactionAPI)
+	authM.POST("/API/create-reaction", h.CreateReactionAPI)
+	authM.PUT("/API/reaction/:id", h.ChangeReactionAPI)
+	authM.DELETE("/API/reaction/:id", h.DeleteReactionAPI)
+	authU.POST("/API/reaction/:id/add-reaction-in-synthesis", h.AddReactionInSynthesisAPI)
+	authM.POST("/API/reaction/:id/image", h.UploadReactionImageAPI)
 
 	//домен заявки (синтез)
 	authU.GET("/API/synthesis/icon", h.GetSynthesisIconAPI)
-	authM.GET("/API/synthesis", h.GetSynthesesAPI)
+	authU.GET("/API/synthesis", h.GetSynthesesAPI)
 	authU.GET("/API/synthesis/:id", h.GetSynthesisAPI)
-	router.PUT("/API/synthesis/:id", h.UpdateSynthesisPurityAPI)
-	router.PUT("/API/synthesis/:id/form", h.FormSynthesisAPI)
-	router.PUT("/API/synthesis/:id/moderate", h.CompleteOrRejectSynthesisAPI)
-	router.DELETE("/API/synthesis", h.DeleteSynthesisAPI)
+	authU.PUT("/API/synthesis/:id", h.UpdateSynthesisPurityAPI)
+	authU.PUT("/API/synthesis/:id/form", h.FormSynthesisAPI)
+	authM.PUT("/API/synthesis/:id/moderate", h.CompleteOrRejectSynthesisAPI)
+	authU.DELETE("/API/synthesis", h.DeleteSynthesisAPI)
 
 	//домен м-м
-	router.DELETE("/API/reaction-synthesis", h.RemoveReactionFromSynthesisAPI)
-	router.PUT("/API/reaction-synthesis", h.UpdateReactionInSynthesisAPI)
+	authU.DELETE("/API/reaction-synthesis", h.RemoveReactionFromSynthesisAPI)
+	authU.PUT("/API/reaction-synthesis", h.UpdateReactionInSynthesisAPI)
 
 	//домен пользователь
 	router.POST("/API/users/register", h.RegisterUserAPI)
-	router.GET("/API/users/profile", h.GetUserProfileAPI) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	authU.GET("/API/users/profile", h.GetUserProfileAPI) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 	router.POST("/API/users/login", h.LoginUserAPI)
-	router.POST("/API/users/logout", h.LogoutUserAPI)
-	router.Use(h.WithAuthCheck(false)).PUT("/API/users/profile", h.UpdateUserAPI)
+	authU.POST("/API/users/logout", h.LogoutUserAPI)
+	authU.PUT("/API/users/profile", h.UpdateUserAPI)
 }
 
 func (h *Handler) RegisterStatic(router *gin.Engine) {

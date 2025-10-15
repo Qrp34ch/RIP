@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"mime/multipart"
 	"strings"
 	"time"
@@ -450,10 +451,17 @@ func (r *Repository) GetSynthesisID(userID uint) int {
 	return synthesisID
 }
 
-func (r *Repository) GetSyntheses(status, startDate, endDate string) ([]ds.Synthesis, error) {
+func (r *Repository) GetSyntheses(status, startDate, endDate string, userId uint) ([]ds.Synthesis, error) {
 	var synthesis []ds.Synthesis
+	var isModerator bool
+	r.db.Model(&ds.Users{}).Where("id = ?", userId).Select("is_moderator").First(&isModerator)
 	fmt.Println("Параметры фильтрации:", status, startDate, endDate)
-	query := r.db.Where("status != ? AND status != ?", "удалён", "черновик")
+	var query *gorm.DB
+	if isModerator {
+		query = r.db.Where("status != ? AND status != ?", "удалён", "черновик")
+	} else {
+		query = r.db.Where("status != ? AND status != ? AND creator_id = ?", "удалён", "черновик", userId)
+	}
 
 	if status != "" {
 		query = query.Where("status = ?", status)

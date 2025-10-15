@@ -405,8 +405,9 @@ func (h *Handler) GetSynthesesAPI(ctx *gin.Context) {
 		h.errorHandler(ctx, http.StatusBadRequest, err)
 		return
 	}
+	userID, err := h.GetUserID(ctx)
 
-	syntheses, err := h.Repository.GetSyntheses(filter.Status, filter.StartDate, filter.EndDate)
+	syntheses, err := h.Repository.GetSyntheses(filter.Status, filter.StartDate, filter.EndDate, userID)
 	if err != nil {
 		h.errorHandler(ctx, http.StatusInternalServerError, err)
 		return
@@ -877,10 +878,9 @@ func (h *Handler) UpdateUserAPI(ctx *gin.Context) {
 	userID, err := h.GetUserID(ctx)
 
 	var input struct {
-		Login       *string `json:"login,omitempty"`
-		Name        *string `json:"name,omitempty"`
-		IsModerator *bool   `json:"is_moderator,omitempty"`
-		Password    *string `json:"password,omitempty"`
+		Login    *string `json:"login,omitempty"`
+		Name     *string `json:"name,omitempty"`
+		Password *string `json:"password,omitempty"`
 	}
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		h.errorHandler(ctx, http.StatusBadRequest, err)
@@ -893,9 +893,7 @@ func (h *Handler) UpdateUserAPI(ctx *gin.Context) {
 	if input.Name != nil {
 		updates["name"] = *input.Name
 	}
-	if input.IsModerator != nil {
-		updates["is_moderator"] = *input.IsModerator
-	}
+
 	//if input.Password != nil {
 	//	input.Password = generateHashString(input.Password)
 	//	updates["password"] = *input.Password
