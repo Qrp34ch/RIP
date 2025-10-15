@@ -43,10 +43,10 @@ func (r *Repository) GetReactionsByTitle(title string) ([]ds.Reaction, error) {
 	return reactions, nil
 }
 
-func (r *Repository) GetReactionsInSynthesis() int64 {
+func (r *Repository) GetReactionsInSynthesis(creatorID uint) int64 {
 	var synthesisID uint
 	var count int64
-	creatorID := 1
+	//creatorID := 1
 	err := r.db.Model(&ds.Synthesis{}).Where("creator_id = ? AND status = ?", creatorID, "черновик").Select("id").First(&synthesisID).Error
 	if err != nil {
 		return 0
@@ -92,9 +92,9 @@ func (r *Repository) FindUserSynthesis(userID uint) uint {
 	return synthesisID
 }
 
-func (r *Repository) AddReactionInSynthesis(id uint) error {
-	userID := 1
-	moderatorID := 2
+func (r *Repository) AddReactionInSynthesis(id uint, userID uint) error {
+	//userID := r.GetUserID()
+	moderatorID := r.GetModeratorID()
 	var synthesisID uint
 	var count int64
 
@@ -108,8 +108,8 @@ func (r *Repository) AddReactionInSynthesis(id uint) error {
 			Status:      "черновик",
 			DateCreate:  time.Now(),
 			DateUpdate:  time.Now(),
-			CreatorID:   uint(userID),
-			ModeratorID: uint(moderatorID),
+			CreatorID:   userID,
+			ModeratorID: moderatorID,
 		}
 		err := r.db.Create(&newSynthesis).Error
 		if err != nil {
@@ -702,32 +702,32 @@ func (r *Repository) UpdateReactionInSynthesis(synthesisID uint, reactionID uint
 	return nil
 }
 
-func (r *Repository) RegisterUser(login, password, fio string, isModerator bool) (*ds.Users, error) {
+func (r *Repository) RegisterUser(login, password, fio string) error {
 	if login == "" {
-		return nil, fmt.Errorf("логин не может быть пустым")
+		return fmt.Errorf("логин не может быть пустым")
 	}
 	if password == "" {
-		return nil, fmt.Errorf("пароль не может быть пустым")
+		return fmt.Errorf("пароль не может быть пустым")
 	}
 	var existingUser ds.Users
 	err := r.db.Where("login = ?", login).First(&existingUser).Error
 	if err == nil {
-		return nil, fmt.Errorf("пользователь с логином '%s' уже существует", login)
+		return fmt.Errorf("логином '%s' уже занят", login)
 	}
 
 	newUser := ds.Users{
 		Login:       login,
 		Password:    password,
-		IsModerator: isModerator,
+		IsModerator: false,
 		FIO:         fio,
 	}
 
 	err = r.db.Create(&newUser).Error
 	if err != nil {
-		return nil, fmt.Errorf("ошибка при создании пользователя: %w", err)
+		return fmt.Errorf("ошибка при создании пользователя: %w", err)
 	}
-	newUser.Password = ""
-	return &newUser, nil
+	//newUser.Password = ""
+	return err
 }
 
 func (r *Repository) GetUserProfile(userID uint) (*ds.Users, error) {
@@ -786,4 +786,25 @@ func (r *Repository) UpdateUser(userID uint, updates map[string]interface{}) (*d
 	user.Password = ""
 
 	return &user, nil
+}
+
+func (r *Repository) GetUserByLogin(login string) (*ds.Users, error) {
+	user := &ds.Users{
+		Login: "login",
+	}
+
+	err := r.db.First(user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (r *Repository) GetUserID() uint {
+	return 1
+}
+
+func (r *Repository) GetModeratorID() uint {
+	return 2
 }

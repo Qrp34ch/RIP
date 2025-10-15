@@ -40,10 +40,15 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 	router.POST("/API/reaction/:id/add-reaction-in-synthesis", h.AddReactionInSynthesisAPI)
 	router.POST("/API/reaction/:id/image", h.UploadReactionImageAPI)
 
+	authM := router.Group("")
+	authM.Use(h.WithAuthCheck(true))
+	authU := router.Group("")
+	authU.Use(h.WithAuthCheck(false))
+
 	//домен заявки (синтез)
-	router.GET("/API/synthesis/icon", h.GetSynthesisIconAPI)
-	router.GET("/API/synthesis", h.GetSynthesesAPI)
-	router.GET("/API/synthesis/:id", h.GetSynthesisAPI)
+	authU.GET("/API/synthesis/icon", h.GetSynthesisIconAPI)
+	authM.GET("/API/synthesis", h.GetSynthesesAPI)
+	authU.GET("/API/synthesis/:id", h.GetSynthesisAPI)
 	router.PUT("/API/synthesis/:id", h.UpdateSynthesisPurityAPI)
 	router.PUT("/API/synthesis/:id/form", h.FormSynthesisAPI)
 	router.PUT("/API/synthesis/:id/moderate", h.CompleteOrRejectSynthesisAPI)
@@ -58,7 +63,7 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 	router.GET("/API/users/profile", h.GetUserProfileAPI) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 	router.POST("/API/users/login", h.LoginUserAPI)
 	router.POST("/API/users/logout", h.LogoutUserAPI)
-	router.PUT("/API/users/profile", h.UpdateUserAPI)
+	router.Use(h.WithAuthCheck(false)).PUT("/API/users/profile", h.UpdateUserAPI)
 }
 
 func (h *Handler) RegisterStatic(router *gin.Engine) {

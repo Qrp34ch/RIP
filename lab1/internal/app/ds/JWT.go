@@ -10,4 +10,5 @@ type JWTClaims struct {
 	UserID   uint      `json:"user_id"`
 	UserUUID uuid.UUID `json:"user_uuid"`
 	Scopes   []string  `json:"scopes"`
+	IsAdmin  bool
 }

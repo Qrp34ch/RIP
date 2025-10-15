@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -30,10 +32,12 @@ func (h *Handler) GetReactions(ctx *gin.Context) {
 			logrus.Error(err)
 		}
 	}
+
+	userId, err := h.GetUserID(ctx)
 	ctx.HTML(http.StatusOK, "index.html", gin.H{
-		"synthesisCount": h.Repository.GetReactionsInSynthesis(),
+		"synthesisCount": h.Repository.GetReactionsInSynthesis(userId),
 		"reactions":      reactions,
-		"id":             h.Repository.FindUserSynthesis(1),
+		"id":             h.Repository.FindUserSynthesis(userId),
 		"query":          searchQuery,
 	})
 }
@@ -76,7 +80,9 @@ func (h *Handler) AddReactionInSynthesis(ctx *gin.Context) {
 		return
 	}
 
-	err = h.Repository.AddReactionInSynthesis(uint(id))
+	userId, err := h.GetUserID(ctx)
+
+	err = h.Repository.AddReactionInSynthesis(uint(id), userId)
 	if err != nil && !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 		return
 	}
@@ -110,11 +116,12 @@ func (h *Handler) GetSynthesis(ctx *gin.Context) {
 		ctx.Redirect(http.StatusFound, "/reaction")
 		return
 	}
+	userId, err := h.GetUserID(ctx)
 
 	ctx.HTML(http.StatusOK, "synthesis.html", gin.H{
 		"synthesisReactions": synthesisReactions,
 		"id":                 id,
-		"user":               h.Repository.GetUserNameByID(1),
+		"user":               h.Repository.GetUserNameByID(userId),
 		"date":               h.Repository.GetDateUpdate(uint(id)),
 		"purity":             h.Repository.GetPurity(uint(id)),
 	})
@@ -317,7 +324,8 @@ func (h *Handler) AddReactionInSynthesisAPI(ctx *gin.Context) {
 		h.errorHandler(ctx, http.StatusBadRequest, err)
 		return
 	}
-	err = h.Repository.AddReactionInSynthesis(uint(id))
+	userId, err := h.GetUserID(ctx)
+	err = h.Repository.AddReactionInSynthesis(uint(id), userId)
 	ctx.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Реакция добавлена в заявку",
@@ -358,9 +366,13 @@ func (h *Handler) UploadReactionImageAPI(ctx *gin.Context) {
 }
 
 func (h *Handler) GetSynthesisIconAPI(ctx *gin.Context) {
+	userID, err := h.GetUserID(ctx)
+	if err != nil {
+		fmt.Printf("nuiladno")
+	}
 
-	synthesisID := h.Repository.GetSynthesisID(1)
-	synthesisCount := h.Repository.GetSynthesisCount(1)
+	synthesisID := h.Repository.GetSynthesisID(userID)
+	synthesisCount := h.Repository.GetSynthesisCount(userID)
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"status":       "success",
@@ -603,9 +615,10 @@ func (h *Handler) CompleteOrRejectSynthesisAPI(ctx *gin.Context) {
 }
 
 func (h *Handler) DeleteSynthesisAPI(ctx *gin.Context) {
-	id := h.Repository.GetSynthesisID(1)
+	userId, err := h.GetUserID(ctx)
+	id := h.Repository.GetSynthesisID(userId)
 
-	err := h.Repository.DeleteSynthesis(uint(id))
+	err = h.Repository.DeleteSynthesis(uint(id))
 	if err != nil {
 		h.errorHandler(ctx, http.StatusInternalServerError, err)
 		return
@@ -618,7 +631,8 @@ func (h *Handler) DeleteSynthesisAPI(ctx *gin.Context) {
 }
 
 func (h *Handler) RemoveReactionFromSynthesisAPI(ctx *gin.Context) {
-	synthesisID := h.Repository.GetSynthesisID(1)
+	userId, err := h.GetUserID(ctx)
+	synthesisID := h.Repository.GetSynthesisID(userId)
 	reactionIDStr := ctx.Query("reaction_id")
 	reactionID, err := strconv.Atoi(reactionIDStr)
 	if err != nil {
@@ -639,13 +653,14 @@ func (h *Handler) RemoveReactionFromSynthesisAPI(ctx *gin.Context) {
 }
 
 func (h *Handler) UpdateReactionInSynthesisAPI(ctx *gin.Context) {
-	synthesisID := h.Repository.GetSynthesisID(1)
+	userId, err := h.GetUserID(ctx)
+	synthesisID := h.Repository.GetSynthesisID(userId)
 
 	var input struct {
 		ReactionID uint    `json:"reaction_id" binding:"required"`
 		VolumeSM   float64 `json:"volume_sm" binding:"required"`
 	}
-	var err error
+	//var err error
 	if err = ctx.ShouldBindJSON(&input); err != nil {
 		h.errorHandler(ctx, http.StatusBadRequest, err)
 		return
@@ -663,34 +678,54 @@ func (h *Handler) UpdateReactionInSynthesisAPI(ctx *gin.Context) {
 	})
 }
 
-func (h *Handler) RegisterUserAPI(ctx *gin.Context) {
-	var input struct {
-		Login       string `json:"login" binding:"required"`
-		Password    string `json:"password" binding:"required"`
-		IsModerator bool   `json:"is_moderator,omitempty"`
-		FIO         string `json:"fio,omitempty"`
-	}
+type RegisterReq struct {
+	Login string `json:"login"` // лучше назвать то же самое что login
+	Pass  string `json:"pass"`
+	FIO   string `json:"fio"`
+}
 
-	if err := ctx.ShouldBindJSON(&input); err != nil {
-		h.errorHandler(ctx, http.StatusBadRequest, err)
-		return
-	}
+type RegisterResp struct {
+	Ok bool `json:"ok"`
+}
 
-	newUser, err := h.Repository.RegisterUser(input.Login, input.Password, input.FIO, input.IsModerator)
+func (h *Handler) RegisterUserAPI(gCtx *gin.Context) {
+	req := &RegisterReq{}
+
+	err := json.NewDecoder(gCtx.Request.Body).Decode(req)
 	if err != nil {
-		h.errorHandler(ctx, http.StatusBadRequest, err)
+		gCtx.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"status":  "success",
-		"data":    newUser,
-		"message": "Пользователь успешно зарегистрирован",
+	if req.Pass == "" {
+		gCtx.AbortWithError(http.StatusBadRequest, fmt.Errorf("pass is empty"))
+		return
+	}
+
+	if req.Login == "" {
+		gCtx.AbortWithError(http.StatusBadRequest, fmt.Errorf("name is empty"))
+		return
+	}
+
+	err = h.Repository.RegisterUser(req.Login, generateHashString(req.Pass), req.FIO)
+	if err != nil {
+		gCtx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	gCtx.JSON(http.StatusOK, &RegisterResp{
+		Ok: true,
 	})
 }
 
+func generateHashString(s string) string {
+	h := sha1.New()
+	h.Write([]byte(s))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 func (h *Handler) GetUserProfileAPI(ctx *gin.Context) {
-	userID := uint(1)
+	userID, err := h.GetUserID(ctx)
 
 	user, err := h.Repository.GetUserProfile(userID)
 	if err != nil {
@@ -745,7 +780,8 @@ func (h *Handler) LoginUserAPI(ctx *gin.Context) {
 	}
 
 	// Аутентифицируем пользователя
-	user, err := h.Repository.AuthUser(req.Login, req.Password)
+	user, err := h.Repository.AuthUser(req.Login, generateHashString(req.Password))
+	fmt.Printf(generateHashString(req.Password))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusForbidden)
 		return
@@ -762,6 +798,8 @@ func (h *Handler) LoginUserAPI(ctx *gin.Context) {
 			Subject:   strconv.FormatUint(uint64(user.ID), 10), // добавляем ID пользователя
 		},
 		UserUUID: uuid.New(),
+		IsAdmin:  user.IsModerator,
+		UserID:   user.ID,
 		Scopes:   []string{},
 	})
 
@@ -785,20 +823,64 @@ func (h *Handler) LoginUserAPI(ctx *gin.Context) {
 }
 
 func (h *Handler) LogoutUserAPI(ctx *gin.Context) {
+	tokenString := ctx.GetHeader("Authorization")
+	if tokenString == "" {
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "Выход выполнен",
+		})
+		return
+	}
+
+	if !strings.HasPrefix(tokenString, jwtPrefix) {
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "Выход выполнен",
+		})
+		return
+	}
+
+	// Отрезаем префикс
+	tokenString = tokenString[len(jwtPrefix):]
+
+	// Парсим токен чтобы получить expiration time
+	claims := &ds.JWTClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(h.Config.JWT.Token), nil
+	})
+
+	if err != nil || !token.Valid {
+		// Если токен невалиден, все равно считаем выход успешным
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "Выход выполнен",
+		})
+		return
+	}
+
+	// Добавляем токен в черный список
+	if h.Repository.RedisClient != nil {
+		// Время жизни в черном списке = оставшееся время жизни токена
+		remainingTTL := time.Unix(claims.ExpiresAt, 0).Sub(time.Now())
+		if remainingTTL > 0 {
+			err = h.Repository.RedisClient.WriteJWTToBlacklist(ctx.Request.Context(), tokenString, remainingTTL)
+			if err != nil {
+				// Логируем ошибку, но все равно возвращаем успех
+				logrus.Errorf("Ошибка добавления токена в черный список: %v", err)
+			}
+		}
+	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"status":  "success",
 		"message": "Выход выполнен успешно",
 	})
 }
 
 func (h *Handler) UpdateUserAPI(ctx *gin.Context) {
-	userID := uint(1)
+	userID, err := h.GetUserID(ctx)
 
 	var input struct {
 		Login       *string `json:"login,omitempty"`
 		Name        *string `json:"name,omitempty"`
 		IsModerator *bool   `json:"is_moderator,omitempty"`
+		Password    *string `json:"password,omitempty"`
 	}
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		h.errorHandler(ctx, http.StatusBadRequest, err)
@@ -814,6 +896,10 @@ func (h *Handler) UpdateUserAPI(ctx *gin.Context) {
 	if input.IsModerator != nil {
 		updates["is_moderator"] = *input.IsModerator
 	}
+	//if input.Password != nil {
+	//	input.Password = generateHashString(input.Password)
+	//	updates["password"] = *input.Password
+	//}
 	if len(updates) == 0 {
 		h.errorHandler(ctx, http.StatusBadRequest, fmt.Errorf("нет полей для обновления"))
 		return
@@ -828,4 +914,14 @@ func (h *Handler) UpdateUserAPI(ctx *gin.Context) {
 		"data":    user,
 		"message": "Данные обновлены",
 	})
+}
+
+// GetUserID получает userID из контекста (установленного middleware)
+func (h *Handler) GetUserID(ctx *gin.Context) (uint, error) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		return 0, fmt.Errorf("требуется авторизация")
+	}
+
+	return userID.(uint), nil
 }
