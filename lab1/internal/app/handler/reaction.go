@@ -16,6 +16,12 @@ import (
 	"time"
 )
 
+type SuccessResponse struct {
+	Status  string      `json:"status"`
+	Message string      `json:"message,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
 func (h *Handler) GetReactions(ctx *gin.Context) {
 	var reactions []ds.Reaction
 	var err error
@@ -137,6 +143,16 @@ func (h *Handler) RemoveSynthesis(ctx *gin.Context) {
 	err = h.Repository.RemoveSynthesis(uint(id))
 	ctx.Redirect(http.StatusFound, "/reaction")
 }
+
+// GetReactionsAPI godoc
+// @Summary Get list of reactions
+// @Description Get all reactions or search by title
+// @Tags Reactions
+// @Accept json
+// @Produce json
+// @Param query query string false "Search query"
+// @Success 200 {object} object{reactions=[]ds.Reaction,query=string}
+// @Router /API/reaction [get]
 func (h *Handler) GetReactionsAPI(ctx *gin.Context) {
 	var reactions []ds.Reaction
 	var err error
@@ -159,6 +175,18 @@ func (h *Handler) GetReactionsAPI(ctx *gin.Context) {
 		"query":     searchQuery,
 	})
 }
+
+// GetReactionAPI godoc
+// @Summary Get reaction by ID
+// @Description Get specific reaction details
+// @Tags Reactions
+// @Accept json
+// @Produce json
+// @Param id path int true "Reaction ID"
+// @Success 200 {object} object{reaction=ds.Reaction}
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 404 {object} object{status=string,description=string} "Not Found"
+// @Router /API/reaction/{id} [get]
 func (h *Handler) GetReactionAPI(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -180,6 +208,33 @@ func (h *Handler) GetReactionAPI(ctx *gin.Context) {
 	})
 }
 
+type ReactionInput struct {
+	Title string `json:"title,omitempty"`
+	//Src              string  json:"src,omitempty"
+	//SrcUr            string  json:"src_ur,omitempty"
+	Details          string  `json:"details,omitempty"`
+	IsDelete         bool    `json:"is_delete,omitempty"`
+	StartingMaterial string  `json:"starting_material,omitempty"`
+	DensitySM        float32 `json:"density_sm,omitempty"`
+	VolumeSM         float32 `json:"volume_sm,omitempty"`
+	MolarMassSM      int     `json:"molar_mass_sm,omitempty"`
+	ResultMaterial   string  `json:"result_material,omitempty"`
+	DensityRM        float32 `json:"density_rm,omitempty"`
+	VolumeRM         float32 `json:"volume_rm,omitempty"`
+	MolarMassRM      int     `json:"molar_mass_rm,omitempty"`
+}
+
+// CreateReactionAPI godoc
+// @Summary Create new reaction
+// @Description Create a new chemical reaction
+// @Tags Reactions
+// @Accept json
+// @Produce json
+// @Param input body ReactionInput true "Reaction data"
+// @Success 201 {object} object{status=string,description=string} "Created"
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/create-reaction [post]
 func (h *Handler) CreateReactionAPI(ctx *gin.Context) {
 	var reactionInput struct {
 		Title string `json:"title,omitempty"`
@@ -231,6 +286,18 @@ func (h *Handler) CreateReactionAPI(ctx *gin.Context) {
 	})
 }
 
+// ChangeReactionAPI godoc
+// @Summary Update reaction
+// @Description Update existing reaction
+// @Tags Reactions
+// @Accept json
+// @Produce json
+// @Param id path int true "Reaction ID"
+// @Param input body ReactionInput true "Updated reaction data"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/reaction/{id} [put]
 func (h *Handler) ChangeReactionAPI(ctx *gin.Context) {
 	idReactionStr := ctx.Param("id")
 	id, err := strconv.Atoi(idReactionStr)
@@ -291,6 +358,18 @@ func (h *Handler) ChangeReactionAPI(ctx *gin.Context) {
 	})
 }
 
+// DeleteReactionAPI godoc
+// @Summary Delete reaction
+// @Description Delete reaction by ID (soft delete)
+// @Tags Reactions
+// @Accept json
+// @Produce json
+// @Param id path int true "Reaction ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 404 {object} object{status=string,description=string} "Not Found"
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/reaction/{id} [delete]
 func (h *Handler) DeleteReactionAPI(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -317,6 +396,18 @@ func (h *Handler) DeleteReactionAPI(ctx *gin.Context) {
 	})
 }
 
+// AddReactionInSynthesisAPI godoc
+// @Summary Add reaction to synthesis
+// @Description Add reaction to current user's synthesis
+// @Tags Reactions
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "Reaction ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/reaction/{id}/add-reaction-in-synthesis [post]
 func (h *Handler) AddReactionInSynthesisAPI(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -332,6 +423,18 @@ func (h *Handler) AddReactionInSynthesisAPI(ctx *gin.Context) {
 	})
 }
 
+// UploadReactionImageAPI godoc
+// @Summary Upload reaction image
+// @Description Upload image for reaction
+// @Tags Reactions
+// @Accept multipart/form-data
+// @Produce json
+// @Param id path int true "Reaction ID"
+// @Param image formData file true "Image file"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/reaction/{id}/image [post]
 func (h *Handler) UploadReactionImageAPI(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -365,6 +468,15 @@ func (h *Handler) UploadReactionImageAPI(ctx *gin.Context) {
 	})
 }
 
+// GetSynthesisIconAPI godoc
+// @Summary Get synthesis icon data
+// @Description Get current user's synthesis ID and items count
+// @Tags Syntheses
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} SuccessResponse
+// @Router /API/synthesis/icon [get]
 func (h *Handler) GetSynthesisIconAPI(ctx *gin.Context) {
 	userID, err := h.GetUserID(ctx)
 	if err != nil {
@@ -381,6 +493,20 @@ func (h *Handler) GetSynthesisIconAPI(ctx *gin.Context) {
 	})
 }
 
+// GetSynthesesAPI godoc
+// @Summary Get list of syntheses
+// @Description Get syntheses with optional filtering
+// @Tags Syntheses
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param status query string false "Status filter"
+// @Param start_date query string false "Start date (YYYY-MM-DD)"
+// @Param end_date query string false "End date (YYYY-MM-DD)"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/synthesis [get]
 func (h *Handler) GetSynthesesAPI(ctx *gin.Context) {
 	var filter struct {
 		Status    string `form:"status"`
@@ -440,6 +566,17 @@ func (h *Handler) GetSynthesesAPI(ctx *gin.Context) {
 	})
 }
 
+// GetSynthesisAPI godoc
+// @Summary Get synthesis by ID
+// @Description Get detailed information about synthesis
+// @Tags Syntheses
+// @Accept json
+// @Produce json
+// @Param id path int true "Synthesis ID"
+// @Success 200 {object} object{status=string,data=object}
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 404 {object} object{status=string,description=string} "Not Found"
+// @Router /API/synthesis/{id} [get]
 func (h *Handler) GetSynthesisAPI(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -507,6 +644,21 @@ func (h *Handler) GetSynthesisAPI(ctx *gin.Context) {
 	})
 }
 
+type InputPurity struct {
+	Purity float64 `json:"purity" binding:"required"`
+}
+
+// UpdateSynthesisPurityAPI godoc
+// @Summary Update synthesis purity
+// @Description Update purity percentage for synthesis
+// @Tags Syntheses
+// @Accept json
+// @Produce json
+// @Param id path int true "Synthesis ID"
+// @Param input body InputPurity true "Purity data"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Router /API/synthesis/{id} [put]
 func (h *Handler) UpdateSynthesisPurityAPI(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -543,6 +695,17 @@ func (h *Handler) UpdateSynthesisPurityAPI(ctx *gin.Context) {
 	})
 }
 
+// FormSynthesisAPI godoc
+// @Summary Form synthesis
+// @Description Change synthesis status to "сформирован"
+// @Tags Syntheses
+// @Accept json
+// @Produce json
+// @Param id path int true "Synthesis ID"
+// @Success 200 {object} object{status=string,data=object,reactions=[]ds.Reaction,message=string}
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/synthesis/{id}/form [put]
 func (h *Handler) FormSynthesisAPI(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -571,6 +734,21 @@ func (h *Handler) FormSynthesisAPI(ctx *gin.Context) {
 	})
 }
 
+type CompleteOrRejectRequest struct {
+	NewStatus bool `json:"new_status" binding:"required"`
+}
+
+// CompleteOrRejectSynthesisAPI godoc
+// @Summary Complete or reject synthesis
+// @Description Complete or reject synthesis by moderator
+// @Tags Syntheses
+// @Accept json
+// @Produce json
+// @Param id path int true "Synthesis ID"
+// @Param input body CompleteOrRejectRequest true "Action data"
+// @Success 200 {object} object{status=string,data=object,reactions=[]ds.Reaction,message=string}
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Router /API/synthesis/{id}/moderate [put]
 func (h *Handler) CompleteOrRejectSynthesisAPI(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -615,6 +793,16 @@ func (h *Handler) CompleteOrRejectSynthesisAPI(ctx *gin.Context) {
 	})
 }
 
+// DeleteSynthesisAPI godoc
+// @Summary Delete current user's synthesis
+// @Description Delete current user's active synthesis
+// @Tags Syntheses
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} SuccessResponse
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/synthesis [delete]
 func (h *Handler) DeleteSynthesisAPI(ctx *gin.Context) {
 	userId, err := h.GetUserID(ctx)
 	id := h.Repository.GetSynthesisID(userId)
@@ -631,6 +819,17 @@ func (h *Handler) DeleteSynthesisAPI(ctx *gin.Context) {
 	})
 }
 
+// RemoveReactionFromSynthesisAPI godoc
+// @Summary Remove reaction from synthesis
+// @Description Remove reaction from current user's synthesis
+// @Tags Synthesis-Reactions
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param reaction_id query int true "Reaction ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Router /API/reaction-synthesis [delete]
 func (h *Handler) RemoveReactionFromSynthesisAPI(ctx *gin.Context) {
 	userId, err := h.GetUserID(ctx)
 	synthesisID := h.Repository.GetSynthesisID(userId)
@@ -653,6 +852,22 @@ func (h *Handler) RemoveReactionFromSynthesisAPI(ctx *gin.Context) {
 	})
 }
 
+type UpdateReactionInSynthesisRequest struct {
+	ReactionID uint    `json:"reaction_id" binding:"required"`
+	VolumeSM   float64 `json:"volume_sm" binding:"required"`
+}
+
+// UpdateReactionInSynthesisAPI godoc
+// @Summary Update reaction in synthesis
+// @Description Update reaction volume in current user's synthesis
+// @Tags Synthesis-Reactions
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param input body UpdateReactionInSynthesisRequest true "Update data"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Router /API/reaction-synthesis [put]
 func (h *Handler) UpdateReactionInSynthesisAPI(ctx *gin.Context) {
 	userId, err := h.GetUserID(ctx)
 	synthesisID := h.Repository.GetSynthesisID(userId)
@@ -689,6 +904,17 @@ type RegisterResp struct {
 	Ok bool `json:"ok"`
 }
 
+// RegisterUserAPI godoc
+// @Summary Register new user
+// @Description Register new user in the system
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param input body RegisterReq true "User registration data"
+// @Success 200 {object} RegisterResp
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Failure 500 {object} object{status=string,description=string} "Internal Server Error"
+// @Router /API/users/register [post]
 func (h *Handler) RegisterUserAPI(gCtx *gin.Context) {
 	req := &RegisterReq{}
 
@@ -725,6 +951,16 @@ func generateHashString(s string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// GetUserProfileAPI godoc
+// @Summary Get user profile
+// @Description Get current user's profile information
+// @Tags Users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} object{status=string,data=ds.Users}
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Router /API/users/profile [get]
 func (h *Handler) GetUserProfileAPI(ctx *gin.Context) {
 	userID, err := h.GetUserID(ctx)
 
@@ -823,6 +1059,15 @@ func (h *Handler) LoginUserAPI(ctx *gin.Context) {
 	})
 }
 
+// LogoutUserAPI godoc
+// @Summary User logout
+// @Description Logout user and invalidate token
+// @Tags Users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} object{message=string}
+// @Router /API/users/logout [post]
 func (h *Handler) LogoutUserAPI(ctx *gin.Context) {
 	tokenString := ctx.GetHeader("Authorization")
 	if tokenString == "" {
@@ -874,6 +1119,23 @@ func (h *Handler) LogoutUserAPI(ctx *gin.Context) {
 	})
 }
 
+type UpdateUserRequest struct {
+	Login    *string `json:"login,omitempty"`
+	Name     *string `json:"name,omitempty"`
+	Password *string `json:"password,omitempty"`
+}
+
+// UpdateUserAPI godoc
+// @Summary Update user profile
+// @Description Update current user's profile information
+// @Tags Users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param input body UpdateUserRequest true "User update data"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} object{status=string,description=string} "Bad Request"
+// @Router /API/users/profile [put]
 func (h *Handler) UpdateUserAPI(ctx *gin.Context) {
 	userID, err := h.GetUserID(ctx)
 

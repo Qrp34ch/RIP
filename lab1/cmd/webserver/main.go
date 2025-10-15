@@ -15,7 +15,7 @@ import (
 	"lab1/internal/pkg"
 )
 
-// @title BITOP
+// @title ASPIRIN
 // @version 1.0
 // @description Aspirin
 
