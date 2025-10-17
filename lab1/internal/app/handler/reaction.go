@@ -573,7 +573,7 @@ func (h *Handler) CompleteOrRejectSynthesisAPI(ctx *gin.Context) {
 
 	moderatorID := uint(2)
 
-	err = h.Repository.CompleteOrRejectSynthesis(uint(id), moderatorID, input.NewStatus)
+	count, err := h.Repository.CompleteOrRejectSynthesis(uint(id), moderatorID, input.NewStatus)
 	if err != nil {
 		h.errorHandler(ctx, http.StatusBadRequest, err)
 		return
@@ -593,6 +593,7 @@ func (h *Handler) CompleteOrRejectSynthesisAPI(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"status":    "success",
 		"data":      updatedSynthesis,
+		"count":     count,
 		"reactions": reactions,
 		"message":   message,
 	})

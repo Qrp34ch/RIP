@@ -563,12 +563,14 @@ func (r *Repository) FormSynthesis(synthesisID uint) error {
 	return nil
 }
 
-func (r *Repository) CompleteOrRejectSynthesis(synthesisID uint, moderatorID uint, newStatus bool) error {
+func (r *Repository) CompleteOrRejectSynthesis(synthesisID uint, moderatorID uint, newStatus bool) (int, error) {
 	var synthesis ds.Synthesis
+	var countMM int
+	countMM = 0
 	err := r.db.Model(&ds.Synthesis{}).Where("id = ? AND status = ?", synthesisID, "сформирован").First(&synthesis).Error
 
 	if err != nil {
-		return fmt.Errorf("сформированный синтез с ID %d не найден", synthesisID)
+		return countMM, fmt.Errorf("сформированный синтез с ID %d не найден", synthesisID)
 	}
 	var updStatus string
 	if newStatus {
@@ -587,7 +589,7 @@ func (r *Repository) CompleteOrRejectSynthesis(synthesisID uint, moderatorID uin
 		var synthesisReaction []ds.SynthesisReaction
 		err = r.db.Where("synthesis_id = ?", synthesisID).Find(&synthesisReaction).Error
 		if err != nil {
-			return fmt.Errorf("ошибка получения данных о синтезе: %w", err)
+			return countMM, fmt.Errorf("ошибка получения данных о синтезе: %w", err)
 		}
 
 		for _, reactionFromSynthesis := range synthesisReaction {
@@ -595,7 +597,7 @@ func (r *Repository) CompleteOrRejectSynthesis(synthesisID uint, moderatorID uin
 			var res float32
 			err = r.db.Where("id = ?", reactionFromSynthesis.ReactionID).Find(&reaction).Error
 			if err != nil {
-				return fmt.Errorf("ошибка получения данных о синтезе: %w", err)
+				return countMM, fmt.Errorf("ошибка получения данных о синтезе: %w", err)
 			}
 			// Vk = (c*Vs*ps*Mk)/(pk*Ms)
 			purity := synthesis.Purity
@@ -606,6 +608,7 @@ func (r *Repository) CompleteOrRejectSynthesis(synthesisID uint, moderatorID uin
 			densitySM := reaction.DensitySM
 			densityRM := reaction.DensityRM
 			res = ((purity * volumeSM * densitySM * molarMassRM) / (densityRM * molarMassSM)) * count
+			countMM += int(reactionFromSynthesis.Count)
 
 			r.db.Model(&ds.SynthesisReaction{}).Where("id = ?", reactionFromSynthesis.ID).Update("volume_rm", res)
 		}
@@ -613,10 +616,10 @@ func (r *Repository) CompleteOrRejectSynthesis(synthesisID uint, moderatorID uin
 
 	err = r.db.Model(&ds.Synthesis{}).Where("id = ?", synthesisID).Updates(updates).Error
 	if err != nil {
-		return fmt.Errorf("ошибка при обновлении синтеза: %w", err)
+		return countMM, fmt.Errorf("ошибка при обновлении синтеза: %w", err)
 	}
 
-	return nil
+	return countMM, nil
 }
 
 func (r *Repository) DeleteSynthesis(synthesisID uint) error {
